@@ -9,6 +9,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from app.core.auth import AuthenticationUnavailableError
 from app.schemas.errors import ErrorDetail, ErrorResponse, FieldError
 
 logger = logging.getLogger(__name__)
@@ -151,6 +152,16 @@ def register_exception_handlers(app: FastAPI) -> None:
             status_code=503,
             code="service_unavailable",
             message="The database is temporarily unavailable.",
+        )
+
+    @app.exception_handler(AuthenticationUnavailableError)
+    async def authentication_unavailable_exception_handler(
+        _request: Request, _exc: AuthenticationUnavailableError
+    ) -> JSONResponse:
+        return _json_error(
+            status_code=503,
+            code="service_unavailable",
+            message="Authentication is temporarily unavailable.",
         )
 
     @app.exception_handler(StarletteHTTPException)

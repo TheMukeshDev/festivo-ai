@@ -1,17 +1,23 @@
-"""Event creation and management API endpoints."""
+"""Authenticated event creation and management API endpoints."""
 
 from typing import Annotated
 
-from fastapi import APIRouter, Query, Request, Response, status
+from fastapi import APIRouter, Depends, Query, Request, Response, status
 
+from app.api.dependencies import get_current_user
+from app.core.auth import AuthenticatedUser
 from app.schemas.errors import ErrorResponse
 from app.schemas.event import EventCreate, EventListResponse, EventResponse, EventUpdate
 from app.services.event_service import EventService
 
 router = APIRouter(prefix="/events", tags=["events"])
 
-_VALIDATION_RESPONSES = {422: {"model": ErrorResponse}}
+_VALIDATION_RESPONSES = {
+    401: {"model": ErrorResponse},
+    422: {"model": ErrorResponse},
+}
 _NOT_FOUND_RESPONSES = {
+    401: {"model": ErrorResponse},
     404: {"model": ErrorResponse},
     422: {"model": ErrorResponse},
 }
@@ -29,9 +35,13 @@ def _service(request: Request) -> EventService:
     responses=_VALIDATION_RESPONSES,
     summary="Create an event",
 )
-def create_event(payload: EventCreate, request: Request) -> EventResponse:
-    """Create a server-identified event in the configured storage backend."""
-    return EventResponse.from_event(_service(request).create(payload))
+def create_event(
+    payload: EventCreate,
+    request: Request,
+    user: Annotated[AuthenticatedUser, Depends(get_current_user)],
+) -> EventResponse:
+    """Create an event owned by the authenticated user."""
+    return EventResponse.from_event(_service(request).create(user.user_id, payload))
 
 
 @router.get(
@@ -42,6 +52,7 @@ def create_event(payload: EventCreate, request: Request) -> EventResponse:
 )
 def list_events(
     request: Request,
+    user: Annotated[AuthenticatedUser, Depends(get_current_user)],
     limit: Annotated[
         int,
         Query(ge=1, le=100, description="Maximum number of events to return."),
@@ -51,8 +62,12 @@ def list_events(
         Query(ge=0, le=1_000_000, description="Number of events to skip."),
     ] = 0,
 ) -> EventListResponse:
-    """Return a deterministic page of events in creation order."""
-    events, total = _service(request).list_events(limit=limit, offset=offset)
+    """Return a deterministic page of the authenticated user's events."""
+    events, total = _service(request).list_events(
+        user.user_id,
+        limit=limit,
+        offset=offset,
+    )
     return EventListResponse(
         items=[EventResponse.from_event(event) for event in events],
         total=total,
@@ -64,12 +79,16 @@ def list_events(
 @router.get(
     "/{event_id}",
     response_model=EventResponse,
-    responses={404: {"model": ErrorResponse}},
+    responses=_NOT_FOUND_RESPONSES,
     summary="Get an event",
 )
-def get_event(event_id: str, request: Request) -> EventResponse:
-    """Return one event or a consistent not-found error."""
-    return EventResponse.from_event(_service(request).get(event_id))
+def get_event(
+    event_id: str,
+    request: Request,
+    user: Annotated[AuthenticatedUser, Depends(get_current_user)],
+) -> EventResponse:
+    """Return one owned event or a consistent not-found error."""
+    return EventResponse.from_event(_service(request).get(user.user_id, event_id))
 
 
 @router.patch(
@@ -78,19 +97,30 @@ def get_event(event_id: str, request: Request) -> EventResponse:
     responses=_NOT_FOUND_RESPONSES,
     summary="Update an event",
 )
-def update_event(event_id: str, payload: EventUpdate, request: Request) -> EventResponse:
+def update_event(
+    event_id: str,
+    payload: EventUpdate,
+    request: Request,
+    user: Annotated[AuthenticatedUser, Depends(get_current_user)],
+) -> EventResponse:
     """Apply supplied editable fields while preserving server-managed fields."""
-    return EventResponse.from_event(_service(request).update(event_id, payload))
+    return EventResponse.from_event(
+        _service(request).update(user.user_id, event_id, payload)
+    )
 
 
 @router.delete(
     "/{event_id}",
     status_code=status.HTTP_204_NO_CONTENT,
     response_class=Response,
-    responses={404: {"model": ErrorResponse}},
+    responses=_NOT_FOUND_RESPONSES,
     summary="Delete an event",
 )
-def delete_event(event_id: str, request: Request) -> Response:
-    """Delete one event if it exists."""
-    _service(request).delete(event_id)
+def delete_event(
+    event_id: str,
+    request: Request,
+    user: Annotated[AuthenticatedUser, Depends(get_current_user)],
+) -> Response:
+    """Delete one owned event if it exists."""
+    _service(request).delete(user.user_id, event_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

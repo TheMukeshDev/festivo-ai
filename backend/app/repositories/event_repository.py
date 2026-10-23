@@ -16,20 +16,26 @@ class EventRepository(ABC):
         """Store an event and return an isolated copy."""
 
     @abstractmethod
-    def get(self, event_id: UUID) -> Event | None:
-        """Return an isolated event copy when it exists."""
+    def get(self, event_id: UUID, owner_id: UUID) -> Event | None:
+        """Return an owned event copy when it exists."""
 
     @abstractmethod
-    def list(self, *, limit: int, offset: int) -> tuple[list[Event], int]:
-        """Return a stable page of isolated event copies and the total count."""
+    def list(
+        self,
+        owner_id: UUID,
+        *,
+        limit: int,
+        offset: int,
+    ) -> tuple[list[Event], int]:
+        """Return a stable page of the owner's events and their total count."""
 
     @abstractmethod
-    def update(self, event: Event) -> Event | None:
-        """Replace an existing event and return an isolated copy."""
+    def update(self, owner_id: UUID, event: Event) -> Event | None:
+        """Replace an existing owned event and return an isolated copy."""
 
     @abstractmethod
-    def delete(self, event_id: UUID) -> bool:
-        """Delete an event, returning whether it existed."""
+    def delete(self, event_id: UUID, owner_id: UUID) -> bool:
+        """Delete an owned event, returning whether it existed."""
 
 
 class InMemoryEventRepository(EventRepository):
@@ -44,24 +50,38 @@ class InMemoryEventRepository(EventRepository):
             self._events[event.event_id] = copy.deepcopy(event)
             return copy.deepcopy(event)
 
-    def get(self, event_id: UUID) -> Event | None:
+    def get(self, event_id: UUID, owner_id: UUID) -> Event | None:
         with self._lock:
             event = self._events.get(event_id)
-            return copy.deepcopy(event) if event is not None else None
+            if event is None or event.owner_id != owner_id:
+                return None
+            return copy.deepcopy(event)
 
-    def list(self, *, limit: int, offset: int) -> tuple[list[Event], int]:
+    def list(
+        self,
+        owner_id: UUID,
+        *,
+        limit: int,
+        offset: int,
+    ) -> tuple[list[Event], int]:
         with self._lock:
-            total = len(self._events)
-            page = list(self._events.values())[offset : offset + limit]
+            owned = [event for event in self._events.values() if event.owner_id == owner_id]
+            total = len(owned)
+            page = owned[offset : offset + limit]
             return [copy.deepcopy(event) for event in page], total
 
-    def update(self, event: Event) -> Event | None:
+    def update(self, owner_id: UUID, event: Event) -> Event | None:
         with self._lock:
-            if event.event_id not in self._events:
+            existing = self._events.get(event.event_id)
+            if existing is None or existing.owner_id != owner_id:
                 return None
             self._events[event.event_id] = copy.deepcopy(event)
             return copy.deepcopy(event)
 
-    def delete(self, event_id: UUID) -> bool:
+    def delete(self, event_id: UUID, owner_id: UUID) -> bool:
         with self._lock:
-            return self._events.pop(event_id, None) is not None
+            existing = self._events.get(event_id)
+            if existing is None or existing.owner_id != owner_id:
+                return False
+            del self._events[event_id]
+            return True

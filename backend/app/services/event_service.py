@@ -27,11 +27,13 @@ class EventService:
         self._timezone = timezone
         self._clock = clock or utc_now
 
-    def create(self, payload: EventCreate) -> Event:
+    def create(self, owner_id: UUID, payload: EventCreate) -> Event:
         now = self._now()
-        self._validate_event_date(payload.event_date, now)
+        timezone = payload.timezone or self._timezone.key
+        self._validate_event_date(payload.event_date, now, timezone)
         event = Event(
             event_id=uuid4(),
+            owner_id=owner_id,
             name=payload.name,
             event_type=payload.event_type,
             event_date=payload.event_date,
@@ -39,6 +41,7 @@ class EventService:
             guest_count=payload.guest_count,
             budget_amount=payload.budget_amount,
             currency=payload.currency,
+            timezone=timezone,
             description=payload.description,
             preferences=tuple(payload.preferences),
             constraints=tuple(payload.constraints),
@@ -47,19 +50,25 @@ class EventService:
         )
         return self._repository.save(event)
 
-    def get(self, raw_event_id: str) -> Event:
+    def get(self, owner_id: UUID, raw_event_id: str) -> Event:
         event_id = self._parse_event_id(raw_event_id)
-        event = self._repository.get(event_id)
+        event = self._repository.get(event_id, owner_id)
         if event is None:
             raise ResourceNotFoundError(_NOT_FOUND_MESSAGE)
         return event
 
-    def list_events(self, *, limit: int, offset: int) -> tuple[list[Event], int]:
-        return self._repository.list(limit=limit, offset=offset)
+    def list_events(
+        self,
+        owner_id: UUID,
+        *,
+        limit: int,
+        offset: int,
+    ) -> tuple[list[Event], int]:
+        return self._repository.list(owner_id, limit=limit, offset=offset)
 
-    def update(self, raw_event_id: str, payload: EventUpdate) -> Event:
+    def update(self, owner_id: UUID, raw_event_id: str, payload: EventUpdate) -> Event:
         event_id = self._parse_event_id(raw_event_id)
-        event = self._repository.get(event_id)
+        event = self._repository.get(event_id, owner_id)
         if event is None:
             raise ResourceNotFoundError(_NOT_FOUND_MESSAGE)
 
@@ -79,8 +88,12 @@ class EventService:
             raise DomainValidationError(issues)
 
         now = self._now()
-        if changes.get("event_date") is not None:
-            self._validate_event_date(changes["event_date"], now)
+        if changes.get("event_date") is not None or changes.get("timezone") is not None:
+            self._validate_event_date(
+                changes.get("event_date", event.event_date),
+                now,
+                changes.get("timezone", event.timezone),
+            )
 
         if changes.get("preferences") is not None:
             changes["preferences"] = tuple(changes["preferences"])
@@ -92,29 +105,33 @@ class EventService:
             return event
 
         updated_at = max(now, event.updated_at + timedelta(microseconds=1))
-        updated = self._repository.update(replace(candidate, updated_at=updated_at))
+        updated = self._repository.update(
+            owner_id,
+            replace(candidate, updated_at=updated_at),
+        )
         if updated is None:
             raise ResourceNotFoundError(_NOT_FOUND_MESSAGE)
         return updated
 
-    def delete(self, raw_event_id: str) -> None:
+    def delete(self, owner_id: UUID, raw_event_id: str) -> None:
         event_id = self._parse_event_id(raw_event_id)
-        if not self._repository.delete(event_id):
+        if not self._repository.delete(event_id, owner_id):
             raise ResourceNotFoundError(_NOT_FOUND_MESSAGE)
 
     def _now(self) -> datetime:
         return coerce_utc(self._clock())
 
-    def _validate_event_date(self, event_date: date, now: datetime) -> None:
-        today = now.astimezone(self._timezone).date()
+    @staticmethod
+    def _validate_event_date(event_date: date, now: datetime, timezone: str) -> None:
+        today = now.astimezone(ZoneInfo(timezone)).date()
         if event_date < today:
             raise DomainValidationError(
                 [
                     ValidationIssue(
                         field="body.event_date",
                         message=(
-                            "Event date must be today or later in the configured "
-                            f"timezone ({self._timezone.key})."
+                            "Event date must be today or later in the event "
+                            f"timezone ({timezone})."
                         ),
                     )
                 ]

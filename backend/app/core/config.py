@@ -35,6 +35,13 @@ class Settings(BaseSettings):
     storage_backend: Literal["memory", "postgres"] = "memory"
     supabase_db_url: SecretStr | None = None
     supabase_db_connect_timeout_seconds: int = Field(default=10, ge=1, le=60)
+
+    supabase_url: str | None = None
+    supabase_jwks_url: str | None = None
+    supabase_jwt_issuer: str | None = None
+    supabase_jwt_audience: str = Field(default="authenticated", min_length=1, max_length=100)
+    supabase_jwt_leeway_seconds: int = Field(default=30, ge=0, le=300)
+
     frontend_origins: list[str] = Field(
         default_factory=lambda: ["http://localhost:5173"],
         validation_alias=AliasChoices("FRONTEND_ORIGINS", "FRONTEND_ORIGIN"),
@@ -105,6 +112,44 @@ class Settings(BaseSettings):
 
         if parsed.scheme not in {"postgres", "postgresql"} or not parsed.hostname:
             raise ValueError("SUPABASE_DB_URL must be a valid PostgreSQL connection URL.")
+        return candidate
+
+    @field_validator("supabase_url")
+    @classmethod
+    def validate_supabase_url(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        candidate = value.strip().rstrip("/")
+        parsed = urlsplit(candidate)
+        if (
+            parsed.scheme not in {"http", "https"}
+            or not parsed.hostname
+            or parsed.username
+            or parsed.password
+            or parsed.path not in {"", "/"}
+            or parsed.query
+            or parsed.fragment
+        ):
+            raise ValueError("SUPABASE_URL must be an http(s) project URL without a path.")
+        return candidate
+
+    @field_validator("supabase_jwks_url", "supabase_jwt_issuer")
+    @classmethod
+    def validate_auth_url(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        candidate = value.strip().rstrip("/")
+        if not candidate:
+            return None
+        parsed = urlsplit(candidate)
+        if (
+            parsed.scheme not in {"http", "https"}
+            or not parsed.hostname
+            or parsed.username
+            or parsed.password
+            or parsed.fragment
+        ):
+            raise ValueError("Supabase authentication URLs must be valid http(s) URLs.")
         return candidate
 
     @field_validator("frontend_origins", mode="before")
@@ -194,6 +239,11 @@ class Settings(BaseSettings):
             raise ValueError("STORAGE_BACKEND must be 'postgres' in production.")
         if self.storage_backend == "postgres" and self.supabase_db_url is None:
             raise ValueError("SUPABASE_DB_URL is required when STORAGE_BACKEND is 'postgres'.")
+        if self.app_env == "production" and not self.auth_configured:
+            raise ValueError(
+                "SUPABASE_URL or SUPABASE_JWKS_URL and SUPABASE_JWT_ISSUER are required "
+                "in production."
+            )
 
         if self.llm_enabled:
             if self.gemini_api_key is None:
@@ -235,6 +285,29 @@ class Settings(BaseSettings):
     def database_configured(self) -> bool:
         """Whether a PostgreSQL connection URL is present, without exposing it."""
         return self.supabase_db_url is not None
+
+    @property
+    def resolved_jwks_url(self) -> str | None:
+        """Return the configured JWKS URL or derive it from the project URL."""
+        if self.supabase_jwks_url is not None:
+            return self.supabase_jwks_url
+        if self.supabase_url is not None:
+            return f"{self.supabase_url}/auth/v1/.well-known/jwks.json"
+        return None
+
+    @property
+    def resolved_jwt_issuer(self) -> str | None:
+        """Return the configured token issuer or derive it from the project URL."""
+        if self.supabase_jwt_issuer is not None:
+            return self.supabase_jwt_issuer
+        if self.supabase_url is not None:
+            return f"{self.supabase_url}/auth/v1"
+        return None
+
+    @property
+    def auth_configured(self) -> bool:
+        """Whether access-token verification can be configured safely."""
+        return self.resolved_jwks_url is not None and self.resolved_jwt_issuer is not None
 
     @property
     def llm_configuration_state(self) -> ConfigurationState:

@@ -54,8 +54,8 @@ class BudgetService:
         self._budget_repository = budget_repository
         self._clock = clock or utc_now
 
-    def create(self, raw_event_id: str, payload: BudgetCreate) -> BudgetView:
-        event = self._require_event(raw_event_id)
+    def create(self, owner_id: UUID, raw_event_id: str, payload: BudgetCreate) -> BudgetView:
+        event = self._require_event(owner_id, raw_event_id)
         if self._budget_repository.get_by_event(event.event_id) is not None:
             raise ResourceConflictError("An event budget already exists.")
 
@@ -78,15 +78,15 @@ class BudgetService:
         aggregate = self._budget_repository.create(budget)
         return self._view(aggregate, event.guest_count)
 
-    def get(self, raw_event_id: str) -> BudgetView:
-        event = self._require_event(raw_event_id)
+    def get(self, owner_id: UUID, raw_event_id: str) -> BudgetView:
+        event = self._require_event(owner_id, raw_event_id)
         aggregate = self._budget_repository.get_by_event(event.event_id)
         if aggregate is None:
             raise ResourceNotFoundError(_BUDGET_NOT_FOUND)
         return self._view(aggregate, event.guest_count)
 
-    def update(self, raw_event_id: str, payload: BudgetUpdate) -> BudgetView:
-        event = self._require_event(raw_event_id)
+    def update(self, owner_id: UUID, raw_event_id: str, payload: BudgetUpdate) -> BudgetView:
+        event = self._require_event(owner_id, raw_event_id)
         aggregate = self._require_budget(event.event_id)
         current = aggregate.budget
         self._ensure_version(current, payload.expected_version)
@@ -125,8 +125,8 @@ class BudgetService:
         )
         return self._view(updated, event.guest_count)
 
-    def add_expense(self, raw_event_id: str, payload: ExpenseCreate) -> BudgetView:
-        event = self._require_event(raw_event_id)
+    def add_expense(self, owner_id: UUID, raw_event_id: str, payload: ExpenseCreate) -> BudgetView:
+        event = self._require_event(owner_id, raw_event_id)
         aggregate = self._require_budget(event.event_id)
         now = self._now()
         expense = Expense(
@@ -150,11 +150,12 @@ class BudgetService:
 
     def update_expense(
         self,
+        owner_id: UUID,
         raw_event_id: str,
         raw_expense_id: str,
         payload: ExpenseUpdate,
     ) -> BudgetView:
-        event = self._require_event(raw_event_id)
+        event = self._require_event(owner_id, raw_event_id)
         expense_id = self._parse_identifier(raw_expense_id, _BUDGET_NOT_FOUND)
         aggregate = self._require_budget(event.event_id)
         current = aggregate.budget
@@ -196,11 +197,12 @@ class BudgetService:
 
     def delete_expense(
         self,
+        owner_id: UUID,
         raw_event_id: str,
         raw_expense_id: str,
         expected_version: int,
     ) -> BudgetView:
-        event = self._require_event(raw_event_id)
+        event = self._require_event(owner_id, raw_event_id)
         expense_id = self._parse_identifier(raw_expense_id, _BUDGET_NOT_FOUND)
         aggregate = self._require_budget(event.event_id)
         now = self._now()
@@ -212,9 +214,9 @@ class BudgetService:
         )
         return self._view(updated, event.guest_count)
 
-    def _require_event(self, raw_event_id: str) -> Event:
+    def _require_event(self, owner_id: UUID, raw_event_id: str) -> Event:
         event_id = self._parse_identifier(raw_event_id, _EVENT_NOT_FOUND)
-        event = self._event_repository.get(event_id)
+        event = self._event_repository.get(event_id, owner_id)
         if event is None:
             raise ResourceNotFoundError(_EVENT_NOT_FOUND)
         return event

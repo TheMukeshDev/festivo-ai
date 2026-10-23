@@ -21,6 +21,7 @@ class Event:
     """A stored celebration event with server-managed identity and timestamps."""
 
     event_id: UUID
+    owner_id: UUID
     name: str
     event_type: EventType
     event_date: date
@@ -28,6 +29,7 @@ class Event:
     guest_count: int
     budget_amount: Decimal
     currency: str
+    timezone: str
     description: str | None
     preferences: tuple[str, ...]
     constraints: tuple[str, ...]

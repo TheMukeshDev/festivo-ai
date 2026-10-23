@@ -2,8 +2,10 @@
 
 from typing import Annotated
 
-from fastapi import APIRouter, Query, Request, status
+from fastapi import APIRouter, Depends, Query, Request, status
 
+from app.api.dependencies import get_current_user
+from app.core.auth import AuthenticatedUser
 from app.schemas.budget import (
     BudgetCreate,
     BudgetIssueResponse,
@@ -21,6 +23,7 @@ from app.services.budget_service import BudgetService, BudgetView
 router = APIRouter(prefix="/events/{event_id}/budget", tags=["budgets"])
 
 _STANDARD_ERRORS = {
+    401: {"model": ErrorResponse},
     404: {"model": ErrorResponse},
     409: {"model": ErrorResponse},
     422: {"model": ErrorResponse},
@@ -96,9 +99,10 @@ def create_budget(
     event_id: str,
     payload: BudgetCreate,
     request: Request,
+    user: Annotated[AuthenticatedUser, Depends(get_current_user)],
 ) -> BudgetResponse:
-    """Create the single budget for an event using its currency and default limit."""
-    return _response(_service(request).create(event_id, payload))
+    """Create the single budget for an owned event."""
+    return _response(_service(request).create(user.user_id, event_id, payload))
 
 
 @router.get(
@@ -107,9 +111,13 @@ def create_budget(
     responses=_STANDARD_ERRORS,
     summary="Get a budget summary",
 )
-def get_budget(event_id: str, request: Request) -> BudgetResponse:
-    """Return server-calculated totals, reserve usage, and planned expenses."""
-    return _response(_service(request).get(event_id))
+def get_budget(
+    event_id: str,
+    request: Request,
+    user: Annotated[AuthenticatedUser, Depends(get_current_user)],
+) -> BudgetResponse:
+    """Return an owned event's calculated totals and planned expenses."""
+    return _response(_service(request).get(user.user_id, event_id))
 
 
 @router.patch(
@@ -122,9 +130,10 @@ def update_budget(
     event_id: str,
     payload: BudgetUpdate,
     request: Request,
+    user: Annotated[AuthenticatedUser, Depends(get_current_user)],
 ) -> BudgetResponse:
-    """Change the total limit or reserve and increment the budget version."""
-    return _response(_service(request).update(event_id, payload))
+    """Change an owned budget and increment its version."""
+    return _response(_service(request).update(user.user_id, event_id, payload))
 
 
 @router.post(
@@ -138,9 +147,10 @@ def create_expense(
     event_id: str,
     payload: ExpenseCreate,
     request: Request,
+    user: Annotated[AuthenticatedUser, Depends(get_current_user)],
 ) -> BudgetResponse:
-    """Add an expense and return the recalculated budget summary."""
-    return _response(_service(request).add_expense(event_id, payload))
+    """Add an expense to an owned budget and return the recalculated summary."""
+    return _response(_service(request).add_expense(user.user_id, event_id, payload))
 
 
 @router.patch(
@@ -154,9 +164,12 @@ def update_expense(
     expense_id: str,
     payload: ExpenseUpdate,
     request: Request,
+    user: Annotated[AuthenticatedUser, Depends(get_current_user)],
 ) -> BudgetResponse:
-    """Update an expense and increment the budget version atomically."""
-    return _response(_service(request).update_expense(event_id, expense_id, payload))
+    """Update an owned expense atomically."""
+    return _response(
+        _service(request).update_expense(user.user_id, event_id, expense_id, payload)
+    )
 
 
 @router.delete(
@@ -169,6 +182,7 @@ def delete_expense(
     event_id: str,
     expense_id: str,
     request: Request,
+    user: Annotated[AuthenticatedUser, Depends(get_current_user)],
     expected_version: Annotated[
         int,
         Query(
@@ -177,5 +191,12 @@ def delete_expense(
         ),
     ],
 ) -> BudgetResponse:
-    """Delete an expense and return the recalculated budget summary."""
-    return _response(_service(request).delete_expense(event_id, expense_id, expected_version))
+    """Delete an owned expense and return the recalculated budget summary."""
+    return _response(
+        _service(request).delete_expense(
+            user.user_id,
+            event_id,
+            expense_id,
+            expected_version,
+        )
+    )
