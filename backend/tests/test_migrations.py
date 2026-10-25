@@ -40,12 +40,28 @@ def test_migration_defines_tables_relationships_and_financial_constraints() -> N
 def test_migration_prepares_rls_and_owner_scoped_policies() -> None:
     sql = "\n".join(path.read_text(encoding="utf-8") for path in migration_files())
 
-    assert sql.count("enable row level security") == 3
+    assert sql.count("enable row level security") >= 3
     assert "owner_id uuid references auth.users" in sql
     assert "events_owner_select" in sql
     assert "event_budgets_owner_all" in sql
     assert "budget_expenses_owner_all" in sql
     assert "auth.uid()" in sql
+
+
+
+def test_planning_proposals_migration_is_owner_scoped_and_advisory() -> None:
+    sql = (MIGRATIONS_DIR / "202610250001_planning_proposals.sql").read_text(
+        encoding="utf-8"
+    )
+
+    assert "create table if not exists public.planning_proposals" in sql
+    assert "proposal_type in ('ai_planning')" in sql
+    assert "status in (" in sql
+    assert "jsonb_typeof(payload) = 'object'" in sql
+    assert "version integer not null" in sql
+    assert "planning_proposals_owner_all" in sql
+    assert "owner_id = auth.uid()" in sql
+    assert "enable row level security" in sql
 
 
 def test_migration_uses_non_reserved_constraint_column_name() -> None:

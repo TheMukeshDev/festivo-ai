@@ -111,6 +111,14 @@ def test_invalid_retry_count_is_rejected(
         make_settings(llm_max_retries=retries)
 
 
+@pytest.mark.parametrize("ttl", [0, -1, 721])
+def test_invalid_proposal_ttl_is_rejected(
+    ttl: int, make_settings: Callable[..., Settings]
+) -> None:
+    with pytest.raises(ValidationError):
+        make_settings(proposal_ttl_hours=ttl)
+
+
 def test_enabling_llm_without_key_fails_with_clear_error(
     make_settings: Callable[..., Settings],
 ) -> None:

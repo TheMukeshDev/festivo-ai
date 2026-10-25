@@ -1,0 +1,86 @@
+﻿........................................................................ [ 27%]
+..................................FF.................................... [ 55%]
+........................................................................ [ 83%]
+................................s.......F..                              [100%]
+================================== FAILURES ===================================
+_______ test_production_disables_docs_and_config_diagnostics_by_default _______
+tests\test_config.py:165: in test_production_disables_docs_and_config_diagnostics_by_default
+    settings = make_settings(
+tests\conftest.py:92: in factory
+    return Settings(**values)
+           ^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\pydantic_settings\main.py:292: in __init__
+    super().__init__(**__pydantic_self__.__class__._settings_build_values(sources, init_kwargs))
+E   pydantic_core._pydantic_core.ValidationError: 1 validation error for Settings
+E     Value error, SUPABASE_URL or SUPABASE_JWKS_URL and SUPABASE_JWT_ISSUER are required in production. [type=value_error, input_value={'FRONTEND_ORIGINS': ['ht...host:5432/festivo_test'}, input_type=dict]
+E       For further information visit https://errors.pydantic.dev/2.14/v/value_error
+____________ test_production_behavior_can_be_explicitly_overridden ____________
+tests\test_config.py:183: in test_production_behavior_can_be_explicitly_overridden
+    settings = make_settings(
+tests\conftest.py:92: in factory
+    return Settings(**values)
+           ^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\pydantic_settings\main.py:292: in __init__
+    super().__init__(**__pydantic_self__.__class__._settings_build_values(sources, init_kwargs))
+E   pydantic_core._pydantic_core.ValidationError: 1 validation error for Settings
+E     Value error, SUPABASE_URL or SUPABASE_JWKS_URL and SUPABASE_JWT_ISSUER are required in production. [type=value_error, input_value={'FRONTEND_ORIGINS': ['ht...g_status_enabled': True}, input_type=dict]
+E       For further information visit https://errors.pydantic.dev/2.14/v/value_error
+_________ test_production_errors_do_not_expose_stack_traces_or_paths __________
+tests\test_security.py:146: in test_production_errors_do_not_expose_stack_traces_or_paths
+    settings = make_settings(
+tests\conftest.py:92: in factory
+    return Settings(**values)
+           ^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\pydantic_settings\main.py:292: in __init__
+    super().__init__(**__pydantic_self__.__class__._settings_build_values(sources, init_kwargs))
+E   pydantic_core._pydantic_core.ValidationError: 1 validation error for Settings
+E     Value error, SUPABASE_URL or SUPABASE_JWKS_URL and SUPABASE_JWT_ISSUER are required in production. [type=value_error, input_value={'FRONTEND_ORIGINS': ['ht...host:5432/festivo_test'}, input_type=dict]
+E       For further information visit https://errors.pydantic.dev/2.14/v/value_error
+============================== warnings summary ===============================
+tests/test_api_contract.py::test_openapi_schema_generation_and_routes
+tests/test_security.py::test_configured_secret_is_never_returned
+  C:\Users\ACER\Downloads\coding\festivo-ai\backend\.venv\Lib\site-packages\fastapi\openapi\utils.py:295: UserWarning: Duplicate Operation ID generate_timeline_api_v1_events__event_id__timeline_post for function generate_timeline at C:\Users\ACER\Downloads\coding\festivo-ai\backend\app\api\v1\timelines.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_api_contract.py::test_openapi_schema_generation_and_routes
+tests/test_security.py::test_configured_secret_is_never_returned
+  C:\Users\ACER\Downloads\coding\festivo-ai\backend\.venv\Lib\site-packages\fastapi\openapi\utils.py:295: UserWarning: Duplicate Operation ID get_timeline_api_v1_events__event_id__timeline_get for function get_timeline at C:\Users\ACER\Downloads\coding\festivo-ai\backend\app\api\v1\timelines.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_api_contract.py::test_openapi_schema_generation_and_routes
+tests/test_security.py::test_configured_secret_is_never_returned
+  C:\Users\ACER\Downloads\coding\festivo-ai\backend\.venv\Lib\site-packages\fastapi\openapi\utils.py:295: UserWarning: Duplicate Operation ID regenerate_timeline_api_v1_events__event_id__timeline_regenerate_post for function regenerate_timeline at C:\Users\ACER\Downloads\coding\festivo-ai\backend\app\api\v1\timelines.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_api_contract.py::test_openapi_schema_generation_and_routes
+tests/test_security.py::test_configured_secret_is_never_returned
+  C:\Users\ACER\Downloads\coding\festivo-ai\backend\.venv\Lib\site-packages\fastapi\openapi\utils.py:295: UserWarning: Duplicate Operation ID create_task_api_v1_events__event_id__tasks_post for function create_task at C:\Users\ACER\Downloads\coding\festivo-ai\backend\app\api\v1\timelines.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_api_contract.py::test_openapi_schema_generation_and_routes
+tests/test_security.py::test_configured_secret_is_never_returned
+  C:\Users\ACER\Downloads\coding\festivo-ai\backend\.venv\Lib\site-packages\fastapi\openapi\utils.py:295: UserWarning: Duplicate Operation ID list_tasks_api_v1_events__event_id__tasks_get for function list_tasks at C:\Users\ACER\Downloads\coding\festivo-ai\backend\app\api\v1\timelines.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_api_contract.py::test_openapi_schema_generation_and_routes
+tests/test_security.py::test_configured_secret_is_never_returned
+  C:\Users\ACER\Downloads\coding\festivo-ai\backend\.venv\Lib\site-packages\fastapi\openapi\utils.py:295: UserWarning: Duplicate Operation ID get_task_api_v1_events__event_id__tasks__task_id__get for function get_task at C:\Users\ACER\Downloads\coding\festivo-ai\backend\app\api\v1\timelines.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_api_contract.py::test_openapi_schema_generation_and_routes
+tests/test_security.py::test_configured_secret_is_never_returned
+  C:\Users\ACER\Downloads\coding\festivo-ai\backend\.venv\Lib\site-packages\fastapi\openapi\utils.py:295: UserWarning: Duplicate Operation ID update_task_api_v1_events__event_id__tasks__task_id__patch for function update_task at C:\Users\ACER\Downloads\coding\festivo-ai\backend\app\api\v1\timelines.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_api_contract.py::test_openapi_schema_generation_and_routes
+tests/test_security.py::test_configured_secret_is_never_returned
+  C:\Users\ACER\Downloads\coding\festivo-ai\backend\.venv\Lib\site-packages\fastapi\openapi\utils.py:295: UserWarning: Duplicate Operation ID delete_task_api_v1_events__event_id__tasks__task_id__delete for function delete_task at C:\Users\ACER\Downloads\coding\festivo-ai\backend\app\api\v1\timelines.py
+    warnings.warn(message, stacklevel=1)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+SKIPPED [1] tests\test_postgres_infrastructure.py:35: TEST_SUPABASE_DB_URL is not configured; live Supabase integration not tested.
+FAILED tests/test_config.py::test_production_disables_docs_and_config_diagnostics_by_default
+FAILED tests/test_config.py::test_production_behavior_can_be_explicitly_overridden
+FAILED tests/test_security.py::test_production_errors_do_not_expose_stack_traces_or_paths
+3 failed, 255 passed, 1 skipped, 16 warnings in 7.73s

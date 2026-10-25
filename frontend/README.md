@@ -1,38 +1,77 @@
 # Festivo AI Frontend
 
-This directory remains a placeholder through Phase 3. No React application or UI screens are
-implemented yet.
+A React application for planning celebrations: events, budgets, timelines, tasks, vendor
+shortlists, vendor comparison, and human-reviewed AI planning suggestions.
 
-## Planned stack
+## Stack
 
-- React and TypeScript
-- Vite
-- Tailwind CSS
-- shadcn/ui
-- Lucide icons
-- Recharts for budget visualizations
-- Motion for React where interaction benefits from it
+- React 19, TypeScript, and Vite
+- Tailwind CSS v4 with project design tokens
+- Radix UI primitives and Lucide icons
+- React Router, TanStack Query, React Hook Form, and Zod
+- Supabase Auth in the browser
+- Vitest and Testing Library
 
-## Integration contract
+## Prerequisites
 
-The future frontend will use a configurable API base URL and call the versioned backend routes:
+- Node.js 20 or newer
+- The FastAPI backend running locally or at a reachable URL
+- A Supabase project with authentication enabled
 
-- `GET /health` for a basic availability check.
-- `GET /api/v1/health` for versioned API identity.
-- `GET /api/v1/config/status` only in development or an authorized operational view.
-- Event CRUD under `/api/v1/events`.
-- Budget and expense operations under `/api/v1/events/{event_id}/budget`.
+## Environment
 
-The frontend must not receive, store, or request Gemini credentials or `SUPABASE_DB_URL`. AI work and
-database access remain server-side. Budget mutations must send the current `expected_version` and
-handle `409 conflict` by refreshing the summary before retrying.
+Copy `.env.example` to `.env.local` and set:
 
-Error responses include a stable `error.code`, a safe `error.message`, and optional `error.fields`
-entries whose `field` values can be mapped to form controls and announced accessibly. API calls
-should surface field errors next to their controls while also providing a summary for assistive
-technology.
+```dotenv
+VITE_API_BASE_URL=http://127.0.0.1:8000
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_ANON_KEY=your-public-anon-key
+```
 
-Browser requests must originate from one of the backend's explicitly configured CORS origins. The
-default development origin is `http://localhost:5173`.
+Only public browser values belong here. Never add a Supabase service-role key, database URL,
+Gemini credential, or any backend secret to a `VITE_` variable. AI calls and database access go
+through the backend.
 
-Implementation begins in Phase 8 of the project roadmap.
+The backend must allow the frontend origin through CORS. The default development origin is
+`http://localhost:5173`.
+
+## Commands
+
+```bash
+npm install
+npm run dev
+npm run typecheck
+npm run lint
+npm run format:check
+npm test
+npm run build
+```
+
+`npm run build` also runs the TypeScript build.
+
+## Routes
+
+- `/` landing page
+- `/sign-in`, `/sign-up`, `/forgot-password`, `/reset-password`, `/auth/callback`
+- `/app` dashboard
+- `/app/events` event list and creation
+- `/app/events/:eventId` overview, edit, budget, timeline, vendors, vendor comparison, AI plan
+- `/app/settings`
+
+## Behavior and safety
+
+- Protected routes require an authenticated Supabase session.
+- Budget and expense writes send `expected_version`; a `409` refresh prompt prevents blind
+  overwrite.
+- Event edits submit only changed fields, so unchanged past dates do not block unrelated edits.
+- Vendor status changes are limited to transitions allowed by the backend lifecycle.
+- AI results are suggestions only. Nothing is saved or applied automatically.
+- Missing prices, ratings, or availability are shown as unknown rather than invented.
+
+## Current limitations
+
+- Proposal approval is not available: the backend has no proposal endpoint and its migration is
+  an empty stub.
+- PDF and CSV exports are not available: the backend exposes no export endpoints.
+- End-to-end authentication and authenticated API flows require real Supabase credentials and a
+  configured backend; they are not exercised by the unit tests.

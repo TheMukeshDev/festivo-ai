@@ -676,7 +676,12 @@ def test_separate_application_instances_have_isolated_event_storage(
 ) -> None:
     _create_event(client, event_payload)
 
-    with TestClient(create_app(make_settings())) as other_client:
+    from tests.conftest import PermissiveTokenVerifier
+
+    with TestClient(
+        create_app(make_settings(), auth_verifier=PermissiveTokenVerifier())
+    ) as other_client:
+        other_client.headers.update({"Authorization": "Bearer test-token"})
         response = other_client.get("/api/v1/events")
 
     assert response.status_code == 200
@@ -702,3 +707,4 @@ def test_event_error_responses_do_not_echo_sensitive_input(
     assert sensitive_value not in response.text
     assert "Traceback" not in response.text
     assert "C:\\" not in response.text
+    assert "C:/" not in response.text

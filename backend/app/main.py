@@ -1,15 +1,19 @@
 """Festivo AI ASGI application factory."""
 
+from datetime import timedelta
 from zoneinfo import ZoneInfo
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.api.v1.ai_planning import router as ai_planning_router
 from app.api.v1.budgets import router as budgets_router
 from app.api.v1.events import router as events_router
+from app.api.v1.exports import router as exports_router
 from app.api.v1.health import api_router, basic_router
-from app.api.v1.tasks import router as tasks_router
+from app.api.v1.proposals import router as proposals_router
 from app.api.v1.timelines import router as timelines_router
+from app.api.v1.vendors import router as vendors_router
 from app.core.auth import (
     RejectAllTokenVerifier,
     SupabaseTokenVerifier,
@@ -21,15 +25,25 @@ from app.db.postgres import PostgresDatabase
 from app.repositories.event_repository import InMemoryEventRepository
 from app.repositories.memory_budget_repository import InMemoryBudgetRepository
 from app.repositories.memory_planning_repository import InMemoryPlanningRepository
+from app.repositories.memory_proposal_repository import InMemoryProposalRepository
+from app.repositories.memory_vendor_repository import InMemoryVendorRepository
 from app.repositories.postgres_budget_repository import PostgresBudgetRepository
 from app.repositories.postgres_event_repository import PostgresEventRepository
 from app.repositories.postgres_planning_repository import PostgresPlanningRepository
+from app.repositories.postgres_proposal_repository import PostgresProposalRepository
+from app.repositories.postgres_vendor_repository import PostgresVendorRepository
+from app.services.ai.gemini_provider import GeminiProvider
+from app.services.ai.planning_service import AIPlanningService
 from app.services.budget_service import BudgetService
 from app.services.event_service import EventService
+from app.services.planning_orchestration_service import PlanningOrchestrationService
+from app.services.proposal_service import ProposalService
+from app.services.report_service import ReportService
 from app.services.task_service import TaskService
 from app.services.timeline_service import TimelineService
+from app.services.vendor_service import VendorService
 
-APP_VERSION = "0.5.0"
+APP_VERSION = "0.8.0"
 
 _CORS_METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
 _CORS_HEADERS = ["Accept", "Authorization", "Content-Type"]
@@ -41,7 +55,12 @@ def create_app(
     budget_service: BudgetService | None = None,
     timeline_service: TimelineService | None = None,
     task_service: TaskService | None = None,
+    vendor_service: VendorService | None = None,
     auth_verifier: TokenVerifier | None = None,
+    proposal_service: ProposalService | None = None,
+    ai_planning_service: AIPlanningService | None = None,
+    orchestration_service: PlanningOrchestrationService | None = None,
+    report_service: ReportService | None = None,
 ) -> FastAPI:
     """Create an application instance with explicit, secure configuration."""
     resolved_settings = settings or get_settings()
@@ -54,12 +73,12 @@ def create_app(
         )
 
     if auth_verifier is None:
-        if resolved_settings.auth_configured:
-            assert resolved_settings.resolved_jwks_url is not None
-            assert resolved_settings.resolved_jwt_issuer is not None
+        jwks_url = resolved_settings.resolved_jwks_url
+        issuer = resolved_settings.resolved_jwt_issuer
+        if resolved_settings.auth_configured and jwks_url and issuer:
             resolved_auth_verifier: TokenVerifier = SupabaseTokenVerifier(
-                jwks_url=resolved_settings.resolved_jwks_url,
-                issuer=resolved_settings.resolved_jwt_issuer,
+                jwks_url=jwks_url,
+                issuer=issuer,
                 audience=resolved_settings.supabase_jwt_audience,
                 leeway_seconds=resolved_settings.supabase_jwt_leeway_seconds,
             )
@@ -68,21 +87,28 @@ def create_app(
     else:
         resolved_auth_verifier = auth_verifier
 
+    database: PostgresDatabase | None = None
+    if resolved_settings.storage_backend == "postgres":
+        if resolved_settings.supabase_db_url is None:
+            raise RuntimeError("SUPABASE_DB_URL is required for the postgres backend.")
+        database = PostgresDatabase(
+            resolved_settings.supabase_db_url,
+            resolved_settings.supabase_db_connect_timeout_seconds,
+        )
+
     if event_service is None:
-        if resolved_settings.storage_backend == "postgres":
-            if resolved_settings.supabase_db_url is None:
-                raise RuntimeError("SUPABASE_DB_URL is required for the postgres backend.")
-            database = PostgresDatabase(
-                resolved_settings.supabase_db_url,
-                resolved_settings.supabase_db_connect_timeout_seconds,
-            )
+        if database is not None:
             event_repository = PostgresEventRepository(database)
             budget_repository = PostgresBudgetRepository(database)
             planning_repository = PostgresPlanningRepository(database)
+            vendor_repository = PostgresVendorRepository(database)
+            proposal_repository = PostgresProposalRepository(database)
         else:
             event_repository = InMemoryEventRepository()
             budget_repository = InMemoryBudgetRepository()
             planning_repository = InMemoryPlanningRepository()
+            vendor_repository = InMemoryVendorRepository()
+            proposal_repository = InMemoryProposalRepository()
 
         resolved_event_service = EventService(
             event_repository,
@@ -99,14 +125,78 @@ def create_app(
             planning_repository,
             resolved_event_service,
         )
+        resolved_vendor_service = vendor_service or VendorService(
+            event_repository,
+            vendor_repository,
+            resolved_event_service,
+            resolved_task_service,
+        )
     else:
-        assert budget_service is not None
-        assert timeline_service is not None
-        assert task_service is not None
+        if budget_service is None or timeline_service is None or task_service is None:
+            raise ValueError(
+                "Custom event, budget, timeline, and task services must be provided together."
+            )
         resolved_event_service = event_service
         resolved_budget_service = budget_service
         resolved_timeline_service = timeline_service
         resolved_task_service = task_service
+        if database is not None:
+            proposal_repository = PostgresProposalRepository(database)
+            vendor_repository = PostgresVendorRepository(database)
+        else:
+            proposal_repository = InMemoryProposalRepository()
+            vendor_repository = InMemoryVendorRepository()
+        event_repository = resolved_event_service._repository
+        resolved_vendor_service = vendor_service or VendorService(
+            event_repository,
+            vendor_repository,
+            resolved_event_service,
+            resolved_task_service,
+        )
+
+    if proposal_service is None:
+        resolved_proposal_service = ProposalService(
+            proposal_repository,
+            resolved_event_service,
+            resolved_budget_service,
+            resolved_task_service,
+            resolved_vendor_service,
+            ttl=timedelta(hours=resolved_settings.proposal_ttl_hours),
+        )
+    else:
+        resolved_proposal_service = proposal_service
+
+    if ai_planning_service is None:
+        provider = None
+        if resolved_settings.llm_enabled and resolved_settings.llm_configuration_state == "configured":
+            try:
+                provider = GeminiProvider(resolved_settings)
+            except Exception:
+                provider = None
+        resolved_ai_planning_service = AIPlanningService(
+            provider=provider,
+            settings=resolved_settings,
+            event_service=resolved_event_service,
+            budget_service=resolved_budget_service,
+            timeline_service=resolved_timeline_service,
+            task_service=resolved_task_service,
+            vendor_service=resolved_vendor_service,
+        )
+    else:
+        resolved_ai_planning_service = ai_planning_service
+
+    resolved_orchestration_service = orchestration_service or PlanningOrchestrationService(
+        resolved_proposal_service,
+        resolved_ai_planning_service,
+    )
+    resolved_report_service = report_service or ReportService(
+        resolved_event_service,
+        resolved_budget_service,
+        resolved_task_service,
+        resolved_vendor_service,
+        resolved_timeline_service,
+        resolved_proposal_service,
+    )
 
     docs_available = resolved_settings.docs_available
 
@@ -124,6 +214,11 @@ def create_app(
     application.state.budget_service = resolved_budget_service
     application.state.timeline_service = resolved_timeline_service
     application.state.task_service = resolved_task_service
+    application.state.vendor_service = resolved_vendor_service
+    application.state.proposal_service = resolved_proposal_service
+    application.state.ai_planning_service = resolved_ai_planning_service
+    application.state.planning_orchestration_service = resolved_orchestration_service
+    application.state.report_service = resolved_report_service
     application.state.auth_verifier = resolved_auth_verifier
 
     application.add_middleware(
@@ -144,22 +239,19 @@ def create_app(
         prefix=resolved_settings.api_v1_prefix,
         tags=["v1"],
     )
-    application.include_router(
+    for router in (
         events_router,
-        prefix=resolved_settings.api_v1_prefix,
-    )
-    application.include_router(
         budgets_router,
-        prefix=resolved_settings.api_v1_prefix,
-    )
-    application.include_router(
         timelines_router,
-        prefix=resolved_settings.api_v1_prefix,
-    )
-    application.include_router(
-        tasks_router,
-        prefix=resolved_settings.api_v1_prefix,
-    )
+        vendors_router,
+        ai_planning_router,
+        proposals_router,
+        exports_router,
+    ):
+        application.include_router(
+            router,
+            prefix=resolved_settings.api_v1_prefix,
+        )
     return application
 
 

@@ -56,6 +56,10 @@ class Settings(BaseSettings):
     llm_enabled: bool = False
     llm_timeout_seconds: float = Field(default=30, gt=0, le=300)
     llm_max_retries: int = Field(default=2, ge=0, le=10)
+    llm_max_output_tokens: int = Field(default=2048, ge=1, le=8192)
+    llm_temperature: float = Field(default=0.4, ge=0.0, le=2.0)
+
+    proposal_ttl_hours: int = Field(default=168, ge=1, le=720)
 
     debug: bool = False
     docs_enabled: bool | None = None

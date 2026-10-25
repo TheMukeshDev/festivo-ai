@@ -55,6 +55,8 @@ _HTTP_ERROR_CODES = {
     415: "unsupported_media_type",
     422: "validation_error",
     429: "too_many_requests",
+    503: "service_unavailable",
+    504: "gateway_timeout",
 }
 
 _HTTP_ERROR_MESSAGES = {
@@ -68,6 +70,8 @@ _HTTP_ERROR_MESSAGES = {
     415: "The request media type is not supported.",
     422: "Request validation failed.",
     429: "Too many requests.",
+    503: "The service is temporarily unavailable.",
+    504: "The upstream service timed out.",
 }
 
 

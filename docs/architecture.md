@@ -2,427 +2,260 @@
 
 ## Scope
 
-Phases 1-3 are implemented:
+The backend is at version 0.8.0. It implements:
 
-1. Secure FastAPI foundation, settings, validation, safe errors, and deterministic tests.
-2. Event CRUD, timezone-aware date policy, server-managed identity/timestamps, and pagination.
-3. Budget planning, planned expenses, Decimal-safe calculations, optimistic concurrency, Supabase
-   PostgreSQL persistence, and versioned SQL migrations.
+1. Secure FastAPI foundation, validated settings, safe errors, CORS, and deterministic tests.
+2. Supabase access-token authentication and owner-scoped event CRUD.
+3. Decimal-safe budgets, planned expenses, optimistic concurrency, and PostgreSQL persistence.
+4. Deterministic timelines and task lifecycle management.
+5. Vendor checklists, booking status, pricing fields, and comparison.
+6. Gemini integration with structured, validated AI output.
+7. Persisted proposals with approval/rejection, stale-snapshot detection, and idempotent task
+   application.
+8. Owner-scoped PDF and CSV event reports.
 
-Phase 4 has not been started. Timelines, tasks, vendors, AI generation, plan versioning, and frontend
-screens remain future work.
+The React client is maintained separately in `frontend/`. Deployment automation, live monitoring, and
+production operations are outside this backend implementation.
 
 ## System boundaries
 
 ```text
-Browser (React, future)
-        |
-        | HTTPS + JSON, explicit CORS origin
-        v
+Browser (React)
+    |
+    | HTTPS + JSON + Bearer access token, explicit CORS origin
+    v
 FastAPI application
-  ├── /health                         process health
-  ├── /api/v1/health                  versioned API health
-  ├── /api/v1/config/status           safe diagnostics
-  ├── /api/v1/events*                 event CRUD
-  ├── /api/v1/events/*/budget*        budget and expense operations
-  ├── Pydantic contracts              request/response and error schemas
-  ├── EventService                    event policy and persistence orchestration
-  ├── BudgetService                   lifecycle, version policy, summary assembly
-  ├── BudgetCalculator                pure Decimal calculations/issues
-  ├── Repositories                    memory and PostgreSQL implementations
-  └── Settings                        validated environment configuration
-        |
-        | psycopg 3, parameterized SQL, TLS
-        v
+    |-- /health                         process health
+    |-- /api/v1/health                  versioned API health
+    |-- /api/v1/config/status           safe diagnostics
+    |-- /api/v1/events*                 events, budgets, timelines, tasks
+    |-- /api/v1/events/*/vendors*       vendor workflow and comparison
+    |-- /api/v1/events/*/proposals*     AI proposal generation and approval
+    |-- /api/v1/events/*/ai-plan*       legacy AI planning aliases
+    |-- /api/v1/events/*/export*        PDF and CSV reports
+    |-- Supabase JWT verification       JWKS, issuer, audience, role
+    |-- Gemini provider                 structured proposal generation
+    |-- Pydantic contracts              strict request/response/error schemas
+    |-- Services                        domain policy and orchestration
+    `-- Repositories                    memory and PostgreSQL implementations
+    |
+    | psycopg 3, parameterized SQL, TLS
+    v
 Supabase PostgreSQL
-  ├── events
-  ├── event_budgets
-  ├── budget_expenses
-  └── schema_migrations (migration runner)
+    |-- events
+    |-- event_budgets
+    |-- budget_expenses
+    |-- event_timelines
+    |-- event_tasks
+    |-- event_vendors
+    |-- vendor_status_history
+    |-- planning_proposals
+    `-- schema_migrations (migration runner)
 ```
 
-The frontend and backend are independently deployable. Credentials are available only to the backend
-environment. There is no provider key or database URL in frontend code.
-
-Gemini remains configured but not integrated. No startup, health, event, or budget operation contacts
-Gemini.
+Credentials exist only in the backend environment. Browser clients use their Supabase access token;
+they never receive the database URL, Gemini API key, or service-role credentials.
 
 ## Backend structure
 
-- `app/main.py` contains the ASGI app factory. It selects memory or PostgreSQL repositories and allows
-  tests to inject isolated event and budget services. It owns the application version (`0.3.0`).
-- `app/core/config.py` parses and validates environment settings, including storage selection and the
-  secret database URL.
-- `app/core/clock.py` provides an injectable timezone-aware UTC clock and normalization.
-- `app/core/money.py` centralizes two-decimal, half-up monetary rounding.
-- `app/core/exceptions.py` defines safe domain errors and HTTP error translation.
+- `app/main.py` owns the ASGI factory, version, service wiring, storage selection, auth verifier, and
+  middleware. Tests can inject deterministic services and verifiers.
+- `app/core/config.py` validates environment settings and derives the Supabase JWKS/issuer.
+- `app/core/auth.py` verifies ES256/RS256 access tokens and extracts the owner UUID.
+- `app/core/exceptions.py` defines safe domain errors and converts them to one JSON envelope.
+- `app/core/clock.py`, `money.py`, and planning rules centralize deterministic calculations.
 - `app/db/postgres.py` owns short-lived psycopg connections and translates connectivity failures.
-- `app/models/event.py` and `app/models/budget.py` define immutable domain objects and enums.
-- `app/schemas/` defines strict Pydantic HTTP contracts.
-- `app/services/event_service.py` applies event policy and update semantics.
-- `app/services/budget_calculator.py` is a pure function layer with no database or HTTP knowledge.
-- `app/services/budget_service.py` applies budget policy, creates server-managed fields, and calls the
-  calculator.
-- `app/repositories/` contains persistence contracts, thread-safe memory implementations, and
-  PostgreSQL implementations.
-- `app/api/v1/events.py` and `app/api/v1/budgets.py` translate HTTP requests into service calls and
-  explicit response models.
-- `scripts/apply_migrations.py` applies checksum-tracked SQL migrations transactionally.
+- `app/models/` contains immutable domain dataclasses and enums.
+- `app/schemas/` contains strict Pydantic HTTP contracts.
+- `app/services/` contains event, budget, timeline, task, vendor, proposal, orchestration, AI, and
+  report use cases.
+- `app/repositories/` contains persistence protocols plus thread-safe memory and PostgreSQL
+  implementations.
+- `app/api/v1/` provides health, event, budget, timeline/task, vendor, proposal, AI planning, and
+  export routes.
+- `scripts/apply_migrations.py` applies checksum-tracked migrations transactionally.
 - `supabase/migrations/` contains the versioned schema and RLS policies.
 
-The unversioned `/health` route remains intentionally minimal for platform process checks. Product
-and diagnostic routes live under `/api/v1`.
+## Authentication and ownership
+
+Supabase access tokens are verified against the project JWKS. Verification requires a valid signature,
+issuer, `aud`, `exp`, `iat`, and an `authenticated` role claim. The token `sub` becomes the owner ID.
+
+Authentication fails closed:
+
+- Missing, malformed, expired, or invalid tokens return `401`.
+- Unreachable signing keys return a safe `503`.
+- If no verifier is configured, every protected route rejects tokens.
+- Every event-scoped repository query includes the owner ID.
+- Cross-user resources return `404`, not `403`, to avoid confirming that they exist.
+
+The backend database role bypasses RLS by design. API ownership checks are the primary authorization
+boundary; RLS remains defense in depth for browser-facing access.
 
 ## Storage selection
 
 `STORAGE_BACKEND` selects storage:
 
-- `memory`: process-local, thread-safe repositories. This is the development and test default.
+- `memory`: process-local, thread-safe repositories for development and tests.
 - `postgres`: psycopg-backed repositories using Supabase PostgreSQL.
 
-`APP_ENV=production` requires `STORAGE_BACKEND=postgres`. Production cannot silently fall back to
-volatile process memory. Selecting `postgres` requires `SUPABASE_DB_URL`; an invalid or incomplete URL
-prevents startup.
+Production requires PostgreSQL; it cannot silently fall back to volatile memory. Database connection
+failures become `503 service_unavailable` rather than false success or data loss. There is no automatic
+fallback to memory.
 
-No fallback from a failed database connection to memory is implemented. A connectivity failure becomes
-a generic `503 service_unavailable` response rather than a false success with lost data.
-
-## PostgreSQL access decision
-
-The backend uses direct PostgreSQL access through `psycopg` instead of the Supabase Python SDK. This is
-deliberate:
-
-- Budget mutations need a transaction covering version verification, expense writes, and version
-  increments.
-- PostgreSQL row locks (`SELECT ... FOR UPDATE`) prevent concurrent writers from applying changes based
-  on the same version.
-- Unique constraints enforce one budget per event even under races.
-- Foreign keys provide cascade deletion and referential integrity.
-- The API remains independent of provider-specific client objects.
-
-Only `SUPABASE_DB_URL` is read by the backend. Supabase URL/API keys/JWKS settings are present for
-future frontend and authentication work but are not used in Phase 3.
-The backend opens a connection per repository operation and relies on the connection context manager
-for transaction commit/rollback. There is no connection pool yet; this is a known MVP limitation.
-
-Database failures are translated at the connection boundary. Raw provider details never reach clients.
+The backend uses direct PostgreSQL access through `psycopg` because budget and proposal mutations need
+transactions, row locks, optimistic version checks, and unique constraints. A connection is opened per
+repository operation; connection pooling remains a production hardening item.
 
 ## Data model
 
 ### Events
 
-`public.events` stores the event domain:
+`public.events` stores the event identity, name/type/date/location, guest count, Decimal budget,
+currency, optional description, preferences, constraints, and UTC timestamps. `owner_id` is required
+by the application and references `auth.users` where configured. The SQL column for constraints is
+`event_constraints`; the API still exposes `constraints`.
 
-- UUID primary key.
-- Nullable `owner_id` referencing `auth.users`, prepared for future authenticated ownership.
-- Name, type, date, location, guest count, decimal budget, and three-letter currency.
-- Optional description.
-- JSON arrays for preferences and event constraints.
-- UTC timestamps.
+### Budgets and expenses
 
-The database column `event_constraints` avoids using the SQL keyword `constraints`; the HTTP contract
-still exposes `constraints`.
+`public.event_budgets` has at most one row per event, a positive bounded limit, currency inherited at
+creation, reserve type/value, integer version, and timestamps. `public.budget_expenses` stores
+planned line items linked by `budget_id` with cascade deletion.
 
-### Budgets
+Authoritative financial values use Python `Decimal`, never binary floating point. Inputs allow at most
+two decimal places and are rounded half-up. Derived totals, reserve consumption, status, issues, and
+cost per guest are recalculated server-side and are not authoritative columns.
 
-`public.event_budgets` stores at most one budget per event:
+Every budget or expense mutation requires `expected_version`. The repository locks the row, verifies
+the version, applies the change, and increments the version atomically. Stale writes return `409`.
 
-- Unique `event_id` with cascade deletion from `events`.
-- Positive bounded `total_limit`.
-- Currency inherited from the event at creation.
-- `reserve_type` of `percentage` or `fixed_amount`.
-- Non-negative `reserve_value`, with checks for percentage range and fixed reserve not exceeding the
-  total limit.
-- Integer `version`, starting at 1.
-- UTC timestamps.
+### Timelines and tasks
 
-The application always recalculates reserve amount, spending totals, status, issues, and cost per
-guest. These derived values are not authoritative database columns.
+`public.event_timelines` stores at most one timeline per event with start/end dates and timezone.
+`public.event_tasks` stores deterministic, event-linked tasks with template keys, priority, status,
+due dates, costs, completion metadata, and unique insertion keys. Generation is deterministic for an
+event snapshot; regeneration only creates missing template tasks and does not overwrite user edits.
 
-### Expenses
+### Vendors
 
-`public.budget_expenses` stores planned line items:
+`public.event_vendors` stores contact/category data, price ranges, estimated/quoted/final costs,
+booking status, rating, availability, notes, and timestamps. `public.vendor_status_history` records
+status transitions. Comparison is derived at request time and does not mutate vendor state. Booking
+status is a planning record, not proof of payment.
 
-- UUID primary key and cascade-linked `budget_id`.
-- Category and name.
-- Positive bounded two-decimal amount.
-- `amount_status` of `estimated`, `quoted`, or `confirmed`.
-- Optional notes.
-- UTC timestamps.
+### Planning proposals
 
-Expense status records the confidence of an amount. It is not a vendor booking, payment, or verified
-quotation state.
+`public.planning_proposals` stores:
 
-### Migration accounting
+- Event and owner IDs.
+- Model/provider metadata.
+- The validated proposal payload, including summary and structured actions.
+- Source snapshot: event update time, budget version, task count, vendor count.
+- Lifecycle status, integer version, expiry, approval/rejection timestamps, and rejection reason.
 
-`public.schema_migrations` is created by the migration runner. It records version filename, SHA-256
-checksum, and application timestamp. An applied migration cannot be edited silently; the runner
-refuses to continue when its checksum changes.
+Proposal statuses are `pending`, `partially_approved`, `approved`, `rejected`, and `expired`.
 
-## Event domain and storage
+## AI pipeline
 
-An event has a server-generated UUID, supported type, calendar date, location, guest count, decimal
-budget, currency, optional description, preference/constraint lists, and UTC timestamps. Clients cannot
-provide server-managed fields.
+`AIPlanningService` builds a bounded context from the event, budget, tasks, and vendors, sends a
+structured prompt to Gemini, validates the response with Pydantic, and returns a typed plan.
+`PlanningOrchestrationService` converts that plan into a persisted proposal.
 
-The repository abstraction isolates event policy from storage. The memory implementation uses a
-re-entrant lock and returns deep copies. The PostgreSQL implementation uses bound parameters and
-explicit column lists, with JSONB for preference and constraint arrays.
+The provider boundary uses:
 
-Creation order is used for deterministic pagination. The API requires both `limit` and `offset`, bounds
-the limit to 100, and returns `total` with the page. Memory mode has process-lifetime durability only.
-PostgreSQL mode is durable, subject to the configured Supabase project and connection.
+- Missing configuration, authentication, and service failures -> `503`.
+- Rate limits -> `429`.
+- Timeouts -> `504`.
+- Invalid structured output -> `422`.
 
-## Budget domain and calculations
+Provider messages, credentials, prompts, and raw model output are not returned to clients. AI is
+disabled unless `LLM_ENABLED=true`, `GEMINI_API_KEY`, and `LLM_MODEL` are configured.
 
-Each event has at most one budget. On creation:
+## Proposal approval
 
-- `total_limit` defaults to the event's `budget_amount`; a positive override is allowed.
-- Currency is inherited from the event.
-- Reserve defaults to 0% and can be a percentage or fixed amount.
-- Version starts at 1.
+Generation is advisory: it does not book vendors, move money, or mutate the event. Approval is an
+explicit, separate action.
 
-No foreign-exchange conversion exists. If an event's budget or currency changes later, an existing
-budget is not silently re-based. The current values remain until a future explicit re-baseline
-operation is designed.
+- Only selected item IDs are applied; omitted items remain pending.
+- Supported actions add tasks, update task due dates, add vendor follow-up tasks, and advise on budget
+  allocation.
+- Advisory items are retained for display/export but never change application data.
+- Task creation uses `proposal:{proposal_id}:{item_id}` for idempotency.
+- Approval rechecks the proposal version and source snapshot. A changed event/budget/task/vendor
+  snapshot returns `409` so stale advice is not silently applied.
+- Item-level validation or missing-resource failures become skipped results. Previously applied work
+  is retained so the user can resolve the issue and resume.
+- Rejection requires a pending proposal and stores an optional reason.
+- New proposals expire after `PROPOSAL_TTL_HOURS`; expiry is enforced when an action is attempted.
 
-### Money
+Approval can span multiple service calls. It is resumable and safe against duplicate task creation,
+but it is not one transaction across every affected table.
 
-- Python `Decimal` is authoritative. Binary floating-point is not used for stored/calculated values.
-- Inputs allow at most two decimal places.
-- Values are rounded with `ROUND_HALF_UP` to two decimal places.
-- Individual amounts and total limits are bounded at `100,000,000.00`.
-- Expense amounts must be greater than zero.
-- All totals, category sums, and statuses are server-derived.
+## Reports
 
-### Formulas
+`ReportService` builds owner-scoped PDF and CSV reports from the event, budget, tasks, vendors, and
+applied proposal recommendations.
 
-For a percentage reserve, `reserve_amount = round(total_limit * reserve_value / 100)`. For a fixed
-reserve, `reserve_amount = reserve_value`.
+- PDF uses ReportLab. User text is XML-escaped before paragraph markup is applied.
+- CSV uses UTF-8, fixed section headers, and bounded row counts.
+- Formula-like CSV cells are prefixed with `'` to reduce spreadsheet injection risk.
+- Pending or rejected recommendations are excluded; advisory items are included only when allowed.
+- Downloads use safe filenames and `Cache-Control: no-store`.
+- Report generation does not call external services.
 
-```text
-available_for_planning = total_limit - reserve_amount
-planned_spending       = sum(expense.amount)
-remaining_total        = total_limit - planned_spending
-remaining_after_reserve = total_limit - planned_spending - reserve_amount
-budget_overrun         = max(0, planned_spending - total_limit)
-reserve_consumed       = max(0, planned_spending - available_for_planning)
-cost_per_guest         = round(planned_spending / guest_count), when guest_count > 0
+## API behavior
+
+Successful responses use explicit Pydantic models or documented download media types. Errors use one
+envelope:
+
+```json
+{
+  "error": {
+    "code": "validation_error",
+    "message": "Request validation failed.",
+    "fields": [
+      {
+        "field": "body.guest_count",
+        "message": "Input should be greater than 0",
+        "type": "greater_than"
+      }
+    ]
+  }
+}
 ```
 
-Statuses:
+Public statuses include `400`, `401`, `404`, `409`, `413`, `415`, `422`, `429`, `500`, `503`, and
+`504`. Error responses never include stack traces, database URLs, provider credentials, environment
+dumps, or filesystem paths. Unhandled exceptions are logged server-side with request method/path and
+return a generic JSON error.
 
-- `within_allocation` when planned spending is at or below available-for-planning.
-- `reserve_consumed` when spending exceeds available-for-planning but not the total limit.
-- `over_budget` when spending exceeds the total limit.
+## Testing
 
-Reserve consumption creates a deterministic warning (`reserve_consumed`). A total overrun creates a
-deterministic error (`total_budget_exceeded`). Spending exactly at a boundary does not incorrectly move
-to the next state.
+Tests use isolated settings, memory repositories, injected clocks, and deterministic token verifiers.
+They do not call Gemini. Optional live Supabase tests are skipped unless `TEST_SUPABASE_DB_URL` points
+at a dedicated test database.
 
-Default categories cover venue/logistics, catering, decoration, photography/videography,
-entertainment, transportation, and miscellaneous. Custom categories are preserved. Category totals are
-ordered by the default category order, then custom categories case-insensitively.
+Coverage includes:
 
-## Optimistic concurrency
+- Configuration, safe errors, CORS, health, and API contracts.
+- Authentication, ownership isolation, and cross-user `404` behavior.
+- Event validation and date policy.
+- Budget arithmetic, reserves, statuses, version conflicts, and persistence contracts.
+- Timeline/task generation and lifecycle.
+- Vendor CRUD, booking-state rules, pricing fields, and comparison.
+- Proposal generation, persistence, stale detection, approval/rejection, expiry, idempotency, and
+  report inclusion.
+- PDF/CSV content, headers, escaping, and formula guards.
+- Migration SQL structure, RLS policies, and migration runner safety.
 
-Every budget update and expense mutation carries `expected_version`:
+## Known limitations
 
-- The service verifies the version before expensive/no-op logic where possible.
-- The repository re-verifies under its respective lock.
-- In memory, a re-entrant lock surrounds check-and-mutate.
-- In PostgreSQL, `SELECT ... FOR UPDATE` serializes writers for the budget row.
-- The version increments in the same transaction as the mutation.
-- A stale version returns `409 conflict`.
-- A no-op update does not increment the version.
-
-This prevents two requests from applying separate changes based on the same old budget state.
-
-## Validation layers
-
-Validation is split deliberately:
-
-1. Pydantic request schemas reject malformed types, unknown fields, excessive lengths, invalid enums,
-   non-finite or over-precision money, invalid reserve shapes, and missing/incorrect version values.
-2. Services enforce server-state policies: event existence, one-budget-per-event, fixed reserve not
-   exceeding the selected total, explicit-null update rules, identifier validity, and version checks.
-3. The calculator independently validates direct financial inputs so it cannot rely on HTTP schemas.
-4. Database constraints provide a final integrity boundary for persistence.
-
-Important event rules:
-
-- Text is stripped; required text cannot be blank.
-- Guest count is a strict integer.
-- Event dates use `YYYY-MM-DD`; datetimes are rejected. Dates before today in `APP_TIMEZONE` are
-  rejected.
-- Currency is three ASCII letters, normalized to uppercase.
-- A no-op event update preserves `updated_at`; a real change produces a timestamp later than the
-  current clock and previous value.
-- Malformed, non-canonical, or nonexistent UUIDs produce the same `404 not_found`.
-
-Important budget rules:
-
-- Budget and expense bodies reject unknown fields, including client-supplied currency, totals, status,
-  or version fields in responses-only positions.
-- `expected_version` is a strict positive integer. Strings such as `"1"` are rejected.
-- Explicit `null` is rejected for budget limit and reserve updates.
-- Explicit `null` is rejected for expense category/name/amount/status updates; `notes: null` is allowed
-  to clear notes.
-- A stale/no-op update still requires a matching current version.
-
-## Configuration flow
-
-Configuration resolves in this order:
-
-1. Process environment variables supplied by the deployment platform or shell.
-2. `backend/.env` for local development, if present.
-3. Validation defaults in `Settings`.
-
-Tests construct `Settings(_env_file=None, ...)` so a developer's local `.env` cannot alter results.
-
-Key behavior:
-
-- `APP_TIMEZONE` defaults to `Asia/Kolkata`; pinned `tzdata` supplies IANA data on Windows.
-- `STORAGE_BACKEND` defaults to `memory`.
-- Production rejects `memory`, `DEBUG=true`, and missing database configuration.
-- `SUPABASE_DB_URL` is a `SecretStr`; status diagnostics expose only booleans, never the URL.
-- `LLM_ENABLED=false` by default. Enabling it requires both a Gemini key and model.
-- No provider request is made at import, startup, or health-check time.
-- Docs and configuration diagnostics are enabled outside production and disabled in production by
-  default.
-
-## API contracts and versioning
-
-- Product routes use `/api/v1`. Breaking response changes require `/api/v2`.
-- `/health` remains outside the versioned namespace for infrastructure checks.
-- Successful payloads use explicit Pydantic response models.
-- Error envelopes use `error.code`, `error.message`, and optional `error.fields[]` with `field`,
-  `message`, and `type`.
-- Validation field paths use the `body.` prefix for frontend form mapping.
-- `404`, `409`, and `503` use the same envelope with safe messages.
-- Unhandled exceptions return generic `500 internal_error`; stack traces and exception text are never
-  exposed.
-- OpenAPI generation is enabled outside production by default and configurable elsewhere.
-
-Expense deletion uses a query parameter for `expected_version` and returns the recalculated budget
-summary with `200`, rather than an empty `204`, so clients immediately receive the new version and
-totals.
-
-## Security decisions
-
-- CORS accepts an explicit origin list; wildcards are rejected.
-- CORS credentials are always disabled. Introducing authentication requires a deliberate review of
-  this decision.
-- Provider credentials and the database URL are `SecretStr` and never returned by API/status/OpenAPI.
-- Database failure responses are generic; provider details are not exposed.
-- SQL values are always bound parameters. SQL identifiers/column lists are fixed constants, never
-  client input.
-- Unhandled exceptions log only the HTTP method and path. Request bodies, headers, credentials, and
-  exception messages are not logged.
-- Event and budget validation rejects unknown fields and bounds text, collection sizes, money, and
-  versions. This does not replace platform-level body/rate limits.
-- Debug mode cannot be enabled in production.
-- The application makes no Gemini request during startup or ordinary API operation.
-- No dynamic evaluation or arbitrary code execution is used.
-- No SQL, shell, or filesystem path is built from client input.
-
-### RLS is not authentication
-
-The migration enables RLS and defines `authenticated`-role policies based on `auth.uid()` and nullable
-`owner_id`. The current API has no authentication and no owner assignment. The backend connection role
-can bypass RLS for current operation. Therefore:
-
-- RLS policies are preparation, not an active API authorization boundary.
-- There is no user/session isolation in the HTTP API.
-- Direct browser access to tables is not a workaround and should not be granted.
-- The API must remain private until authentication and ownership assignment are implemented.
-
-## Migrations and deployment
-
-The initial SQL migration lives under `supabase/migrations/` and follows the Supabase CLI naming
-layout. The backend includes a separate transactional runner because no Supabase project is provisioned
-here.
-
-The runner:
-
-- Uses `SUPABASE_DB_URL` from environment or `.env`.
-- Acquires an advisory transaction lock.
-- Creates `schema_migrations` if absent.
-- Checks checksums for applied files.
-- Applies all pending files in one transaction.
-- Refuses edited applied migrations.
-
-The schema is not applied automatically at application startup. Startup must not mutate production
-schema implicitly, and a failed migration should be an explicit deployment failure.
-
-The Phase 3 schema has been applied to a live Supabase project and verified with the opt-in
-PostgreSQL integration test plus an API-to-database event/budget/expense smoke test. Browser-facing
-RLS behavior remains unverified because API authentication and owner assignment are not implemented.
-
-## Assumptions
-
-- TLS terminates at the hosting platform or reverse proxy.
-- Deployment environments supply secrets through environment configuration, not committed files.
-- Browser origins are known before deployment and configured explicitly.
-- Only the backend reaches the database; browsers use the HTTP API.
-- The Supabase database role supplied to the backend may bypass RLS, as required by the current
-  unauthenticated API.
-- Short-lived direct connections are acceptable for MVP traffic until pooling is introduced.
-- Budgets are single-currency plans with no FX conversion.
-- Planned expenses are estimates/quotations/confirmed amounts, not vendor payments.
-- Event budget/currency changes do not automatically re-base an existing budget.
-- In-memory storage is development/test only.
-
-## Required before public deployment
-
-- Authentication and authorization on every event and budget operation.
-- Owner assignment and an API access model reconciled with RLS policies.
-- A real Supabase project, applied migration, verified connection, backups, and recovery plan.
-- Connection pooling or an explicitly verified Supabase pooler configuration.
-- Rate limiting, request-size limits, quota controls, and abuse protection.
-- Audit logging that excludes credentials and sensitive event content.
-- Dependency and secret scanning in CI.
-- Platform-level security headers and TLS verification.
-- Opt-in live database integration tests in CI against an isolated project.
-- A policy for event budget/currency changes after budget creation.
-- Verified Gemini model access and live-provider tests before AI features ship.
-- Prompt-injection and untrusted-output handling for generated plans.
-
-## Testing strategy
-
-Tests are deterministic and use FastAPI TestClient with isolated Settings, isolated repositories, and
-a fixed 2030 clock.
-
-- Health/contract tests verify status, schema generation, route inventory, and safe failures.
-- Configuration tests cover credential-free startup, `.env` precedence, invalid timeouts/retries/
-  timezones, production storage enforcement, database URL validation, and secret non-disclosure.
-- Security tests cover CORS allow/deny behavior, wildcard rejection, credential non-disclosure,
-  no credential logging, safe production errors, and debug rejection.
-- Event tests cover CRUD, validation, timezone-aware dates, pagination, no-op updates, nullable rules,
-  404 consistency, state isolation, and concurrent creation.
-- Calculator tests cover formulas, half-up rounding, reserves, boundary statuses, issues, category
-  ordering/grouping, cost per guest, and invalid financial input.
-- Budget service tests cover defaults, custom settings, duplicate budgets, expense lifecycle,
-  no-op behavior, version conflicts, explicit-null rules, and fixed-reserve limits.
-- Budget API tests cover routes, response contracts, error envelopes, validation, 404/409/503 paths,
-  version increments, and event deletion behavior.
-- Migration tests cover required tables/constraints/RLS, migration naming, and runner safety without a
-  live database.
-- A PostgreSQL connectivity test verifies safe DSN failure translation.
-- Live PostgreSQL integration tests are opt-in through `TEST_SUPABASE_DB_URL` and skipped otherwise.
-
-No test calls Gemini, consumes provider quota, or connects to Supabase by default.
-
-## Path to the event planner
-
-Later services map directly to product requirements:
-
-- Timeline/task service: dependency-aware schedules and rescheduling.
-- Vendor service: checklists and booking state transitions.
-- AI planning service: provider-agnostic theme, menu, and cost-optimization proposals.
-- Plan service: versioned edits, validation, and export.
-- Authentication/ownership service: user identity, ownership assignment, and RLS-aligned API access.
-
-The event/budget domain, repository boundaries, transactional versioning, safe error format, migration
-path, and server-only credential handling support this evolution without turning the backend into a
-generic chatbot proxy.
+- No connection pool; each repository operation opens a short-lived database connection.
+- Proposal approval is resumable but not fully transactional across all affected services.
+- Expired proposals are updated on attempted action; bulk listing does not rewrite expiry state.
+- No application-level rate limiting, request-size protection, quota controls, or audit logging.
+- No automatic budget re-baselining when event budget/currency changes.
+- No foreign exchange, taxes, actual-expense reconciliation, or vendor payment processing.
+- Offset pagination only; no cursor pagination for large persistent datasets.
+- Live Supabase migration/integration verification requires separate credentials and is not part of
+  the default test run.

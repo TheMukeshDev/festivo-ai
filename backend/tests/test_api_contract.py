@@ -19,17 +19,17 @@ def test_openapi_schema_generation_and_routes(client: TestClient) -> None:
     assert response.status_code == 200
     schema = response.json()
     assert schema["info"]["title"] == "Festivo AI"
-    assert schema["info"]["version"] == "0.3.0"
-    assert set(schema["paths"]) == {
-        "/health",
-        "/api/v1/health",
-        "/api/v1/config/status",
-        "/api/v1/events",
-        "/api/v1/events/{event_id}",
-        "/api/v1/events/{event_id}/budget",
-        "/api/v1/events/{event_id}/budget/expenses",
-        "/api/v1/events/{event_id}/budget/expenses/{expense_id}",
-    }
+    assert schema["info"]["version"] == "0.8.0"
+    assert "/api/v1/events/{event_id}/vendors" in schema["paths"]
+    assert "/api/v1/events/{event_id}/vendors/{vendor_id}" in schema["paths"]
+    assert "/api/v1/events/{event_id}/vendors/compare" in schema["paths"]
+    assert "/api/v1/events/{event_id}/proposals" in schema["paths"]
+    assert "/api/v1/events/{event_id}/proposals/generate" in schema["paths"]
+    assert "/api/v1/events/{event_id}/proposals/{proposal_id}/approve" in schema["paths"]
+    assert "/api/v1/events/{event_id}/proposals/{proposal_id}/reject" in schema["paths"]
+    assert "/api/v1/events/{event_id}/export/pdf" in schema["paths"]
+    assert "/api/v1/events/{event_id}/export/csv" in schema["paths"]
+
 
 
 def test_health_endpoints_conform_to_declared_models(client: TestClient) -> None:

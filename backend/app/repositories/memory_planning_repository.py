@@ -12,6 +12,7 @@ from app.models.timeline import Timeline
 from app.repositories.planning_repository import PlanningRepository
 
 _TIMELINE_CONFLICT = "An event timeline already exists."
+_TASK_CONFLICT = "A task with this template key already exists."
 _TASK_NOT_FOUND = "Task not found."
 
 
@@ -92,8 +93,36 @@ class InMemoryPlanningRepository(PlanningRepository):
     def create_task(self, task: Task) -> Task:
         with self._lock:
             self._assert_timeline_link(task)
+            if task.template_key is not None:
+                existing = next(
+                    (
+                        candidate
+                        for candidate in self._tasks.values()
+                        if candidate.event_id == task.event_id
+                        and candidate.template_key == task.template_key
+                    ),
+                    None,
+                )
+                if existing is not None:
+                    raise ResourceConflictError(_TASK_CONFLICT)
             self._tasks[task.task_id] = copy.deepcopy(task)
             return copy.deepcopy(task)
+
+    def get_task_by_template_key(
+        self,
+        owner_id: UUID,
+        event_id: UUID,
+        template_key: str,
+    ) -> Task | None:
+        with self._lock:
+            for task in self._tasks.values():
+                if (
+                    task.owner_id == owner_id
+                    and task.event_id == event_id
+                    and task.template_key == template_key
+                ):
+                    return copy.deepcopy(task)
+            return None
 
     def get_task(
         self,

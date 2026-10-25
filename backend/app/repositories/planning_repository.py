@@ -36,6 +36,15 @@ class PlanningRepository(ABC):
         """Atomically add missing generated tasks and record regeneration time."""
 
     @abstractmethod
+    def get_task_by_template_key(
+        self,
+        owner_id: UUID,
+        event_id: UUID,
+        template_key: str,
+    ) -> Task | None:
+        """Return an event task with the given generated template key, if any."""
+
+    @abstractmethod
     def create_task(self, task: Task) -> Task:
         """Persist a new owned task."""
 

@@ -21,6 +21,7 @@ from app.schemas.budget import (
 from app.schemas.event import EventCreate
 from app.services.budget_service import BudgetService
 from app.services.event_service import EventService
+from tests.conftest import TEST_USER_ID
 
 
 @pytest.fixture
@@ -28,12 +29,13 @@ def event(
     event_service: EventService,
     event_payload,
 ):
-    return event_service.create(EventCreate.model_validate(event_payload()))
+    return event_service.create(TEST_USER_ID, EventCreate.model_validate(event_payload()))
 
 
 @pytest.fixture
 def budget(budget_service: BudgetService, event):
     return budget_service.create(
+        TEST_USER_ID,
         str(event.event_id),
         BudgetCreate(
             total_limit=Decimal("1000.00"),
@@ -56,14 +58,14 @@ def add_expense(
         "amount": Decimal(amount),
     }
     values.update(overrides)
-    return budget_service.add_expense(event_id, ExpenseCreate(**values))
+    return budget_service.add_expense(TEST_USER_ID, event_id, ExpenseCreate(**values))
 
 
 def test_create_uses_event_budget_and_currency_by_default(
     budget_service: BudgetService,
     event,
 ) -> None:
-    view = budget_service.create(str(event.event_id), BudgetCreate())
+    view = budget_service.create(TEST_USER_ID, str(event.event_id), BudgetCreate())
 
     assert view.budget.total_limit == event.budget_amount
     assert view.budget.currency == event.currency
@@ -81,6 +83,7 @@ def test_create_supports_custom_limit_and_fixed_reserve(
     event,
 ) -> None:
     view = budget_service.create(
+        TEST_USER_ID,
         str(event.event_id),
         BudgetCreate(
             total_limit=Decimal("2000.00"),
@@ -98,10 +101,10 @@ def test_only_one_budget_can_exist_per_event(
     budget_service: BudgetService,
     event,
 ) -> None:
-    budget_service.create(str(event.event_id), BudgetCreate())
+    budget_service.create(TEST_USER_ID, str(event.event_id), BudgetCreate())
 
     with pytest.raises(ResourceConflictError):
-        budget_service.create(str(event.event_id), BudgetCreate())
+        budget_service.create(TEST_USER_ID, str(event.event_id), BudgetCreate())
 
 
 def test_create_rejects_fixed_reserve_above_total(
@@ -110,6 +113,7 @@ def test_create_rejects_fixed_reserve_above_total(
 ) -> None:
     with pytest.raises(DomainValidationError) as error:
         budget_service.create(
+            TEST_USER_ID,
             str(event.event_id),
             BudgetCreate(
                 total_limit=Decimal("100.00"),
@@ -119,7 +123,7 @@ def test_create_rejects_fixed_reserve_above_total(
 
     assert error.value.issues[0].field == "body.reserve.value"
     with pytest.raises(ResourceNotFoundError):
-        budget_service.get(str(event.event_id))
+        budget_service.get(TEST_USER_ID, str(event.event_id))
 
 
 def test_get_returns_recalculated_summary(
@@ -129,7 +133,7 @@ def test_get_returns_recalculated_summary(
 ) -> None:
     add_expense(budget_service, str(event.event_id), 1, "950.00")
 
-    view = budget_service.get(str(event.event_id))
+    view = budget_service.get(TEST_USER_ID, str(event.event_id))
 
     assert view.budget.version == 2
     assert view.calculation.planned_spending == Decimal("950.00")
@@ -141,9 +145,9 @@ def test_missing_event_and_budget_are_distinct_not_found_errors(
     event,
 ) -> None:
     with pytest.raises(ResourceNotFoundError):
-        budget_service.get("not-a-valid-id")
+        budget_service.get(TEST_USER_ID, "not-a-valid-id")
     with pytest.raises(ResourceNotFoundError):
-        budget_service.get(str(event.event_id))
+        budget_service.get(TEST_USER_ID, str(event.event_id))
 
 
 def test_update_changes_settings_and_increments_version(
@@ -152,6 +156,7 @@ def test_update_changes_settings_and_increments_version(
     budget,
 ) -> None:
     view = budget_service.update(
+        TEST_USER_ID,
         str(event.event_id),
         BudgetUpdate(
             expected_version=1,
@@ -171,12 +176,14 @@ def test_stale_budget_version_is_rejected(
     budget,
 ) -> None:
     budget_service.update(
+        TEST_USER_ID,
         str(event.event_id),
         BudgetUpdate(expected_version=1, total_limit=Decimal("1200.00")),
     )
 
     with pytest.raises(ResourceConflictError):
         budget_service.update(
+            TEST_USER_ID,
             str(event.event_id),
             BudgetUpdate(expected_version=1, total_limit=Decimal("1300.00")),
         )
@@ -188,6 +195,7 @@ def test_noop_budget_update_does_not_increment_version(
     budget,
 ) -> None:
     view = budget_service.update(
+        TEST_USER_ID,
         str(event.event_id),
         BudgetUpdate(expected_version=1, total_limit=Decimal("1000.00")),
     )
@@ -202,6 +210,7 @@ def test_stale_noop_budget_update_is_rejected(
 ) -> None:
     with pytest.raises(ResourceConflictError):
         budget_service.update(
+            TEST_USER_ID,
             str(event.event_id),
             BudgetUpdate(expected_version=2),
         )
@@ -224,7 +233,7 @@ def test_budget_update_rejects_explicit_nulls(
     payload = BudgetUpdate(expected_version=1, **{field: value})
 
     with pytest.raises(DomainValidationError) as error:
-        budget_service.update(str(event.event_id), payload)
+        budget_service.update(TEST_USER_ID, str(event.event_id), payload)
 
     assert error.value.issues[0].field == f"body.{field}"
 
@@ -234,6 +243,7 @@ def test_budget_update_rejects_fixed_reserve_above_new_total(
     event,
 ) -> None:
     budget_service.create(
+        TEST_USER_ID,
         str(event.event_id),
         BudgetCreate(
             total_limit=Decimal("1000.00"),
@@ -243,6 +253,7 @@ def test_budget_update_rejects_fixed_reserve_above_new_total(
 
     with pytest.raises(DomainValidationError):
         budget_service.update(
+            TEST_USER_ID,
             str(event.event_id),
             BudgetUpdate(expected_version=1, total_limit=Decimal("400.00")),
         )
@@ -288,6 +299,7 @@ def test_update_expense_changes_fields_and_increments_version(
     expense_id = str(added.expenses[0].expense_id)
 
     view = budget_service.update_expense(
+        TEST_USER_ID,
         str(event.event_id),
         expense_id,
         ExpenseUpdate(
@@ -318,6 +330,7 @@ def test_update_expense_rejects_explicit_nulls_except_notes(
 
     with pytest.raises(DomainValidationError) as error:
         budget_service.update_expense(
+            TEST_USER_ID,
             str(event.event_id),
             expense_id,
             ExpenseUpdate(expected_version=2, name=None),
@@ -335,6 +348,7 @@ def test_noop_expense_update_does_not_increment_version(
     expense_id = str(added.expenses[0].expense_id)
 
     view = budget_service.update_expense(
+        TEST_USER_ID,
         str(event.event_id),
         expense_id,
         ExpenseUpdate(expected_version=2, name="Dinner"),
@@ -352,12 +366,13 @@ def test_update_or_delete_unknown_expense_is_not_found(
 
     with pytest.raises(ResourceNotFoundError):
         budget_service.update_expense(
+            TEST_USER_ID,
             str(event.event_id),
             unknown_id,
             ExpenseUpdate(expected_version=1, amount=Decimal("10.00")),
         )
     with pytest.raises(ResourceNotFoundError):
-        budget_service.delete_expense(str(event.event_id), unknown_id, 1)
+        budget_service.delete_expense(TEST_USER_ID, str(event.event_id), unknown_id, 1)
 
 
 def test_delete_expense_increments_version_and_recalculates(
@@ -368,7 +383,7 @@ def test_delete_expense_increments_version_and_recalculates(
     added = add_expense(budget_service, str(event.event_id), 1, "200.00")
     expense_id = str(added.expenses[0].expense_id)
 
-    view = budget_service.delete_expense(str(event.event_id), expense_id, 2)
+    view = budget_service.delete_expense(TEST_USER_ID, str(event.event_id), expense_id, 2)
 
     assert view.budget.version == 3
     assert view.expenses == ()
@@ -384,7 +399,7 @@ def test_delete_expense_with_stale_version_is_rejected(
     expense_id = str(added.expenses[0].expense_id)
 
     with pytest.raises(ResourceConflictError):
-        budget_service.delete_expense(str(event.event_id), expense_id, 1)
+        budget_service.delete_expense(TEST_USER_ID, str(event.event_id), expense_id, 1)
 
 
 def test_custom_category_and_invalid_expense_ids(
@@ -401,4 +416,4 @@ def test_custom_category_and_invalid_expense_ids(
 
     assert view.expenses[0].category == "Mehndi artists"
     with pytest.raises(ResourceNotFoundError):
-        budget_service.delete_expense(str(event.event_id), "bad-id", 2)
+        budget_service.delete_expense(TEST_USER_ID, str(event.event_id), "bad-id", 2)
