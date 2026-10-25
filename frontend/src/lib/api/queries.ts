@@ -15,7 +15,7 @@ import type {
   VendorStatus,
   VendorUpdateInput,
 } from '@/types/api'
-import { API_PREFIX, apiRequest } from '@/lib/api/client'
+import { API_PREFIX, apiDownload, apiRequest, type DownloadedFile } from '@/lib/api/client'
 
 const events = `${API_PREFIX}/events`
 
@@ -204,6 +204,45 @@ export const aiPlanningApi = {
   },
 }
 
+export const proposalsApi = {
+  list(eventId: string) {
+    return apiRequest<import('@/types/api').ProposalListResponse>(
+      `${eventPath(eventId)}/proposals?limit=100&offset=0`,
+    )
+  },
+  generate(eventId: string, payload: AiPlanRequest = { preferences: {}, focus_areas: [] }) {
+    return apiRequest<import('@/types/api').ProposalRecord>(
+      `${eventPath(eventId)}/proposals/generate`,
+      { method: 'POST', body: payload, timeoutMs: 75_000 },
+    )
+  },
+  approve(eventId: string, proposalId: string, itemIds?: string[]) {
+    return apiRequest<import('@/types/api').ProposalApprovalResponse>(
+      `${eventPath(eventId)}/proposals/${encodeURIComponent(proposalId)}/approve`,
+      { method: 'POST', body: itemIds ? { item_ids: itemIds } : {} },
+    )
+  },
+  reject(eventId: string, proposalId: string, itemIds?: string[], reason?: string) {
+    return apiRequest<{
+      proposal: import('@/types/api').ProposalRecord
+      rejected_items: string[]
+      message: string
+    }>(`${eventPath(eventId)}/proposals/${encodeURIComponent(proposalId)}/reject`, {
+      method: 'POST',
+      body: { ...(itemIds ? { item_ids: itemIds } : {}), ...(reason ? { reason } : {}) },
+    })
+  },
+}
+
+export const exportsApi = {
+  pdf(eventId: string): Promise<DownloadedFile> {
+    return apiDownload(`${eventPath(eventId)}/export/pdf`, `festivo-${eventId}.pdf`)
+  },
+  csv(eventId: string): Promise<DownloadedFile> {
+    return apiDownload(`${eventPath(eventId)}/export/csv`, `festivo-${eventId}.csv`)
+  },
+}
+
 export const queryKeys = {
   events: ['events'] as const,
   event: (eventId: string) => ['events', eventId] as const,
@@ -218,4 +257,5 @@ export const queryKeys = {
   vendorCompare: (eventId: string) => ['events', eventId, 'vendors', 'compare'] as const,
   aiStatus: (eventId: string) => ['events', eventId, 'ai-plan', 'status'] as const,
   aiPlan: (eventId: string) => ['events', eventId, 'ai-plan'] as const,
+  proposals: (eventId: string) => ['events', eventId, 'proposals'] as const,
 }

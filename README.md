@@ -23,6 +23,14 @@ The backend is at version **0.8.0** and includes:
 The React client lives in [`frontend/`](frontend/README.md). See [`backend/README.md`](backend/README.md)
 for backend setup, configuration, endpoints, and security behavior.
 
+## Release documentation
+
+- [Deployment guide](docs/DEPLOYMENT.md)
+- [Testing guide](docs/TESTING.md)
+- [Security notes](docs/SECURITY.md)
+- [Demo script](docs/DEMO_SCRIPT.md)
+- [Submission checklist](docs/SUBMISSION_CHECKLIST.md)
+
 ## Architecture
 
 ```text
@@ -112,4 +120,5 @@ Live Supabase integration tests are skipped unless `TEST_SUPABASE_DB_URL` points
 database. Never point it at production data.
 
 See [docs/architecture.md](docs/architecture.md) for design decisions, security boundaries, and
-known limitations.
+known limitations. Live Supabase, Gemini, and deployed-host checks require credentials and are not
+represented as complete by the local test suite.

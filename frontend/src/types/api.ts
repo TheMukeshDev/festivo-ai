@@ -391,3 +391,74 @@ export interface AiPlanStatus {
   timeout_seconds: number
   max_retries: number
 }
+
+export type ProposalStatus =
+  'pending' | 'partially_approved' | 'approved' | 'rejected' | 'expired'
+export type ProposalItemStatus = 'pending' | 'applied' | 'skipped' | 'rejected'
+export type ProposalActionType =
+  | 'add_task'
+  | 'update_task_due_date'
+  | 'add_vendor_follow_up_task'
+  | 'budget_allocation_suggestion'
+  | 'advisory'
+
+export interface ProposalItem {
+  item_id: string
+  action_type: ProposalActionType
+  status: ProposalItemStatus
+  label: string
+  data: Record<string, unknown>
+  applied_at: string | null
+  result_message: string | null
+  resource_id: string | null
+}
+
+export interface ProposalRecord {
+  proposal_id: string
+  event_id: string
+  proposal_type: string
+  title: string
+  summary: string
+  status: ProposalStatus
+  version: number
+  items: ProposalItem[]
+  pending_item_count: number
+  applied_item_count: number
+  created_at: string
+  updated_at: string
+  expires_at: string
+  approved_at: string | null
+  rejected_at: string | null
+}
+
+export interface ProposalListResponse {
+  items: ProposalRecord[]
+  total: number
+  limit: number
+  offset: number
+}
+
+export interface ProposalApprovalResponse {
+  proposal: ProposalRecord
+  applied: Array<{
+    item_id: string
+    action_type: ProposalActionType
+    status: string
+    message: string
+    resource_id: string | null
+  }>
+  skipped: Array<{
+    item_id: string
+    action_type: ProposalActionType
+    status: string
+    message: string
+    resource_id: string | null
+  }>
+  rejected: Array<{
+    item_id: string
+    action_type: ProposalActionType
+    status: string
+    message: string
+    resource_id: string | null
+  }>
+}

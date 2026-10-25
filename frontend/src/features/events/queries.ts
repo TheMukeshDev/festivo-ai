@@ -5,6 +5,7 @@ import {
   aiPlanningApi,
   budgetsApi,
   eventsApi,
+  proposalsApi,
   queryKeys,
   timelinesApi,
   vendorsApi,
@@ -80,5 +81,13 @@ export function useAiStatusQuery(eventId: string | undefined) {
     queryFn: () => aiPlanningApi.status(eventId!),
     enabled: Boolean(eventId),
     staleTime: 60_000,
+  })
+}
+
+export function useProposalsQuery(eventId: string | undefined) {
+  return useQuery({
+    queryKey: eventId ? queryKeys.proposals(eventId) : ['proposals', 'missing'],
+    queryFn: () => proposalsApi.list(eventId!),
+    enabled: Boolean(eventId),
   })
 }

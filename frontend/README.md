@@ -70,8 +70,8 @@ npm run build
 
 ## Current limitations
 
-- Proposal approval is not available: the backend has no proposal endpoint and its migration is
-  an empty stub.
-- PDF and CSV exports are not available: the backend exposes no export endpoints.
 - End-to-end authentication and authenticated API flows require real Supabase credentials and a
   configured backend; they are not exercised by the unit tests.
+- Proposal generation depends on the backend AI provider configuration. Proposals remain advisory
+  until an explicit approval is confirmed by the backend.
+- PDF and CSV exports require the authenticated backend export service to be available.
