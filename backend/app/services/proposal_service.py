@@ -100,7 +100,10 @@ class ProposalService:
             proposal_type=ProposalType.AI_PLANNING,
             title=f"AI planning proposal for {event.name}"[:200],
             summary=plan.summary[:6000],
-            payload={"items": items},
+            payload={
+                "items": items,
+                "ai_plan": plan.model_dump(mode="json"),
+            },
             status=ProposalStatus.PENDING,
             version=1,
             source_snapshot=self._snapshot(owner_id, event),
@@ -866,4 +869,3 @@ class ProposalService:
         if str(identifier) != raw_identifier.lower():
             raise ResourceNotFoundError(not_found_message)
         return identifier
-

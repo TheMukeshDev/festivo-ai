@@ -1,13 +1,14 @@
 # Festivo AI deployment guide
 
-This guide describes deployment of the existing React/Vite frontend, FastAPI backend, and Supabase
-database. No deployment is currently published from this repository.
+This guide describes separate Vercel deployments for the React/Vite frontend and FastAPI backend,
+with Supabase providing authentication and PostgreSQL persistence.
 
 ## Frontend
 
-Deploy `frontend/` to Vercel or another static Vite host.
+Deploy `frontend/` as its own Vercel project.
 
 - Root directory: `frontend`
+- Framework preset: `Vite`
 - Install command: `npm ci`
 - Build command: `npm run build`
 - Output directory: `dist`
@@ -16,32 +17,49 @@ Deploy `frontend/` to Vercel or another static Vite host.
   - `VITE_SUPABASE_URL`: Supabase project URL
   - `VITE_SUPABASE_ANON_KEY`: public Supabase anon/publishable key
 
-Configure the host for SPA fallback to `index.html`. Add the production frontend origin to the
-backend `FRONTEND_ORIGIN` or `FRONTEND_ORIGINS` setting. Add the frontend URL to the Supabase Auth
-redirect allow-list, including the callback path `/auth/callback`.
+`frontend/vercel.json` configures the SPA fallback to `index.html`. After deployment, add the
+production frontend origin to the backend `FRONTEND_ORIGINS` setting and add the frontend URL to
+the Supabase Auth redirect allow-list, including the callback path `/auth/callback`.
 
 ## Backend
 
-The backend currently targets Python 3.15 (`>=3.15,<3.16`) and uses the pinned dependencies in
-`backend/pyproject.toml`.
+Deploy `backend/` as a second Vercel project. `backend/vercel.json` and `backend/api/index.py`
+expose the FastAPI `app` as a Vercel Python function.
 
-```powershell
-cd backend
-python -m pip install .
-python -m uvicorn app.main:app --host 0.0.0.0 --port $env:PORT
-```
+Configure the Vercel project with:
 
-Set `APP_ENV=production`, `STORAGE_BACKEND=postgres`, and configure:
+- Root directory: `backend`
+- Framework preset: `Other`
+- Build command: leave empty
+- Output directory: leave empty
+- Runtime entry point: `api/index.py`
+
+Set `APP_ENV=production`, `STORAGE_BACKEND=postgres`, and configure these Vercel environment
+variables:
 
 - `SUPABASE_DB_URL`
 - `SUPABASE_URL` or both `SUPABASE_JWKS_URL` and `SUPABASE_JWT_ISSUER`
 - `SUPABASE_JWT_AUDIENCE`
-- `FRONTEND_ORIGIN` or `FRONTEND_ORIGINS`
+- `FRONTEND_ORIGINS` with the exact frontend URL, for example
+  `https://festivo-ai.vercel.app`
 - `LLM_ENABLED`, `LLM_PROVIDER`, `LLM_MODEL`, and `GEMINI_API_KEY` when AI planning is enabled
 
 Production startup rejects debug mode, missing PostgreSQL configuration, and missing authentication
 configuration. Use `GET /health` as the platform health check. OpenAPI and configuration diagnostics
 are disabled in production by default.
+
+Do not set `STORAGE_BACKEND=memory` in the deployed backend. Vercel functions are ephemeral and
+memory-backed events will disappear between invocations.
+
+## Vercel deployment sequence
+
+1. Create a Vercel project from this repository with root directory `backend`; deploy it first.
+2. Copy its HTTPS URL and verify `https://<backend-domain>/health`.
+3. Create a second Vercel project with root directory `frontend`.
+4. Set `VITE_API_BASE_URL` to the backend URL and set the Supabase public variables.
+5. Deploy the frontend, then update backend `FRONTEND_ORIGINS` to the final frontend URL.
+6. Add the frontend URL and `/auth/callback` to Supabase Authentication URL configuration.
+7. Redeploy the backend after changing CORS and run the smoke tests below.
 
 ## Supabase
 

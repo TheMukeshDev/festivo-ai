@@ -5,6 +5,7 @@ from zoneinfo import ZoneInfo
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import RedirectResponse
 
 from app.api.v1.ai_planning import router as ai_planning_router
 from app.api.v1.budgets import router as budgets_router
@@ -46,7 +47,7 @@ from app.services.vendor_service import VendorService
 APP_VERSION = "0.8.0"
 
 _CORS_METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
-_CORS_HEADERS = ["Accept", "Authorization", "Content-Type"]
+_CORS_HEADERS = ["Accept", "Authorization", "Content-Type", "apikey", "x-client-info"]
 
 
 def create_app(
@@ -209,6 +210,25 @@ def create_app(
         redoc_url="/redoc" if docs_available else None,
         openapi_url="/openapi.json" if docs_available else None,
     )
+    if docs_available:
+        application.add_api_route(
+            "/api/docs",
+            lambda: RedirectResponse(url="/docs", status_code=307),
+            methods=["GET"],
+            include_in_schema=False,
+        )
+        application.add_api_route(
+            "/api/openapi.json",
+            lambda: RedirectResponse(url="/openapi.json", status_code=307),
+            methods=["GET"],
+            include_in_schema=False,
+        )
+        application.add_api_route(
+            "//docs",
+            lambda: RedirectResponse(url="/docs", status_code=307),
+            methods=["GET"],
+            include_in_schema=False,
+        )
     application.state.settings = resolved_settings
     application.state.event_service = resolved_event_service
     application.state.budget_service = resolved_budget_service

@@ -191,13 +191,13 @@ export const aiPlanningApi = {
     )
   },
   generate(eventId: string, payload: AiPlanRequest) {
-    return apiRequest<import('@/types/api').AiPlanResponse>(
+    return apiRequest<import('@/types/api').ProposalRecord>(
       `${eventPath(eventId)}/ai-plan`,
       { method: 'POST', body: payload, timeoutMs: 75_000 },
     )
   },
   refine(eventId: string, payload: AiPlanRequest) {
-    return apiRequest<import('@/types/api').AiPlanResponse>(
+    return apiRequest<import('@/types/api').ProposalRecord>(
       `${eventPath(eventId)}/ai-plan/refine`,
       { method: 'POST', body: payload, timeoutMs: 75_000 },
     )

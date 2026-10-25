@@ -60,8 +60,10 @@ export async function apiRequest<T>(
     headers['Content-Type'] = 'application/json'
   }
 
+  let accessToken: string | null = null
   if (auth) {
-    const token = await resolveAccessToken()
+    accessToken = await resolveAccessToken()
+    const token = accessToken
     if (token) {
       headers.Authorization = `Bearer ${token}`
     }
@@ -78,7 +80,7 @@ export async function apiRequest<T>(
     })
 
     if (!response.ok) {
-      if (response.status === 401) {
+      if (response.status === 401 && accessToken) {
         window.dispatchEvent(new CustomEvent(UNAUTHORIZED_EVENT))
       }
       throw await parseApiError(response)
@@ -142,7 +144,7 @@ export async function apiDownload(
     })
 
     if (!response.ok) {
-      if (response.status === 401) {
+      if (response.status === 401 && token) {
         window.dispatchEvent(new CustomEvent(UNAUTHORIZED_EVENT))
       }
       throw await parseApiError(response)

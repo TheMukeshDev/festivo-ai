@@ -33,10 +33,10 @@ const navItems = [
 
 function navClass(isActive: boolean): string {
   return cn(
-    'flex items-center gap-3 rounded-sm px-3 py-2.5 text-sm font-medium transition-colors',
+    'group flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-all',
     isActive
-      ? 'bg-primary-soft text-primary-strong'
-      : 'text-ink-soft hover:bg-canvas hover:text-ink',
+      ? 'bg-primary-soft text-primary-strong shadow-sm'
+      : 'text-ink-soft hover:-translate-y-px hover:bg-canvas hover:text-ink',
   )
 }
 
@@ -134,7 +134,7 @@ export function AppShell() {
         Skip to main content
       </a>
 
-      <aside className="fixed inset-y-0 left-0 hidden w-[17rem] flex-col border-r border-line bg-surface lg:flex">
+      <aside className="workspace-sidebar fixed inset-y-0 left-0 hidden w-[17rem] flex-col border-r border-line lg:flex">
         <div className="flex h-16 items-center border-b border-line px-5">
           <Brand to="/app" />
         </div>
@@ -142,7 +142,7 @@ export function AppShell() {
           <CreateEventLink />
           <NavItems />
           <div className="mt-auto space-y-3">
-            <div className="rounded-md bg-canvas p-3">
+            <div className="rounded-lg border border-primary/10 bg-primary-soft/45 p-3">
               <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.1em] text-muted">
                 <Sparkles className="size-3.5 text-accent" aria-hidden="true" />
                 Planning note

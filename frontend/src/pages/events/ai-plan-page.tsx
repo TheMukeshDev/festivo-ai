@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { useMutation } from '@tanstack/react-query'
 import {
@@ -36,6 +36,8 @@ import type {
   AiPlanResponse,
   AiPriority,
   AiTaskSuggestion,
+  ConversationMessage,
+  ProposalRecord,
 } from '@/types/api'
 
 const focusOptions = [
@@ -81,6 +83,30 @@ function parsePreferences(value: string): Record<string, unknown> {
       entries.push([`preference_${index + 1}`, line])
     })
   return Object.fromEntries(entries)
+}
+
+function normalizePlanResponse(response: AiPlanResponse | ProposalRecord): AiPlanResponse {
+  const candidate = (('ai_plan' in response && response.ai_plan ? response.ai_plan : response) as
+    AiPlanResponse & {
+    created_at?: string
+    proposal_type?: string
+  })
+
+  return {
+    event_id: candidate.event_id,
+    summary: candidate.summary,
+    theme_ideas: candidate.theme_ideas ?? [],
+    recommendations: candidate.recommendations ?? [],
+    budget_suggestions: candidate.budget_suggestions ?? [],
+    timeline_suggestions: candidate.timeline_suggestions ?? [],
+    task_suggestions: candidate.task_suggestions ?? [],
+    vendor_category_suggestions: candidate.vendor_category_suggestions ?? [],
+    risks_and_constraints: candidate.risks_and_constraints ?? [],
+    assumptions: candidate.assumptions ?? [],
+    next_steps: candidate.next_steps ?? [],
+    generated_at: candidate.generated_at ?? candidate.created_at ?? new Date().toISOString(),
+    model_used: candidate.model_used ?? candidate.proposal_type ?? 'Gemini',
+  }
 }
 
 function SectionList({
@@ -387,6 +413,28 @@ function AiPlanContent({ eventId }: { eventId: string }) {
   const [focusAreas, setFocusAreas] = useState<string[]>([])
   const [preferences, setPreferences] = useState('')
   const [notes, setNotes] = useState('')
+  const [question, setQuestion] = useState('')
+  const [conversation, setConversation] = useState<ConversationMessage[]>([])
+
+  useEffect(() => {
+    const stored = sessionStorage.getItem(`festivo-ai-conversation:${eventId}`)
+    if (!stored) return
+    try {
+      const parsed = JSON.parse(stored) as ConversationMessage[]
+      if (Array.isArray(parsed)) setConversation(parsed.slice(-12))
+    } catch {
+      sessionStorage.removeItem(`festivo-ai-conversation:${eventId}`)
+    }
+  }, [eventId])
+
+  useEffect(() => {
+    if (conversation.length) {
+      sessionStorage.setItem(
+        `festivo-ai-conversation:${eventId}`,
+        JSON.stringify(conversation.slice(-12)),
+      )
+    }
+  }, [conversation, eventId])
   const [validationError, setValidationError] = useState<string | null>(null)
   const [result, setResult] = useState<AiPlanResponse | null>(null)
 
@@ -425,13 +473,34 @@ function AiPlanContent({ eventId }: { eventId: string }) {
       preferences: parsePreferences(preferences),
       focus_areas: focusAreas,
       ...(notes.trim() ? { additional_notes: notes.trim() } : {}),
+      ...(question.trim()
+        ? {
+            conversation: [
+              ...conversation,
+              { role: 'user' as const, content: question.trim() },
+            ].slice(-12),
+          }
+        : conversation.length
+          ? { conversation: conversation.slice(-12) }
+          : {}),
     }
 
     try {
       const response = result
         ? await refineMutation.mutateAsync(payload)
         : await generateMutation.mutateAsync(payload)
-      setResult(response)
+      const normalized = normalizePlanResponse(response)
+      setResult(normalized)
+      if (question.trim()) {
+        setConversation((current) =>
+          [
+            ...current,
+            { role: 'user' as const, content: question.trim() },
+            { role: 'assistant' as const, content: normalized.summary },
+          ].slice(-12),
+        )
+        setQuestion('')
+      }
     } catch (error) {
       setValidationError(
         error instanceof Error
@@ -457,9 +526,17 @@ function AiPlanContent({ eventId }: { eventId: string }) {
 
   return (
     <div className="space-y-5">
-      <div>
-        <h2 className="font-display text-2xl text-ink">AI planning</h2>
-        <p className="mt-1 max-w-2xl text-sm leading-6 text-muted">
+      <div className="rounded-xl border border-primary/15 bg-gradient-to-br from-primary-soft/70 via-surface to-accent-soft/30 p-5 sm:p-6">
+        <div className="flex items-start gap-3">
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary text-white shadow-sm">
+            <Sparkles className="size-5" aria-hidden="true" />
+          </span>
+          <div>
+            <p className="eyebrow text-primary-strong">Draft with Gemini</p>
+            <h2 className="mt-1 font-display text-2xl text-ink">AI planning</h2>
+          </div>
+        </div>
+        <p className="mt-3 max-w-2xl text-sm leading-6 text-muted">
           Generate planning suggestions from your event details. Nothing is saved or applied
           automatically, and AI output can be incomplete or wrong.
         </p>
@@ -528,6 +605,50 @@ function AiPlanContent({ eventId }: { eventId: string }) {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-5">
+          <div className="rounded-lg border border-primary/15 bg-primary-soft/35 p-4">
+            <div className="flex items-start gap-3">
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary text-white">
+                <Sparkles className="size-4" aria-hidden="true" />
+              </span>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-ink">Ask your planning copilot</p>
+                <p className="mt-1 text-xs leading-5 text-ink-soft">
+                  Ask follow-up questions about the budget, timeline, vendors, or priorities.
+                  Every answer creates a fresh draft for you to review.
+                </p>
+              </div>
+            </div>
+            {conversation.length ? (
+              <div className="mt-4 space-y-2 border-t border-primary/10 pt-3">
+                {conversation.slice(-6).map((message, index) => (
+                  <div
+                    key={`${message.role}-${index}`}
+                    className={cn(
+                      'max-w-[92%] rounded-lg px-3 py-2 text-xs leading-5',
+                      message.role === 'user'
+                        ? 'ml-auto bg-primary text-white'
+                        : 'bg-surface text-ink-soft',
+                    )}
+                  >
+                    {message.content}
+                  </div>
+                ))}
+              </div>
+            ) : null}
+            <textarea
+              value={question}
+              onChange={(event) => setQuestion(event.target.value)}
+              rows={2}
+              maxLength={2000}
+              disabled={!available || busy}
+              placeholder="For example: Can we keep catering under 35% and move more to photography?"
+              className="mt-3 flex min-h-16 w-full rounded-md border border-line-strong bg-surface px-3 py-2 text-sm text-ink shadow-inset placeholder:text-muted focus-visible:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-60"
+            />
+            <p className="mt-1 text-[0.68rem] text-muted">
+              Follow-ups are suggestions only. Approve changes from the proposal workspace.
+            </p>
+          </div>
+
           <fieldset disabled={!available || busy}>
             <legend className="text-sm font-medium text-ink">Focus areas</legend>
             <p className="mt-1 text-xs text-muted">Choose at least one.</p>

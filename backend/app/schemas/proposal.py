@@ -21,6 +21,7 @@ from app.models.proposal import (
     ProposalStatus,
     ProposalType,
 )
+from app.services.ai.schemas import AIPlanResponse
 
 ProposalTitle = Annotated[
     str,
@@ -83,6 +84,7 @@ class ProposalResponse(BaseModel):
     expires_at: datetime
     approved_at: datetime | None = None
     rejected_at: datetime | None = None
+    ai_plan: AIPlanResponse | None = None
 
     @classmethod
     def from_proposal(cls, proposal: Proposal) -> Self:
@@ -108,6 +110,11 @@ class ProposalResponse(BaseModel):
             expires_at=proposal.expires_at,
             approved_at=proposal.approved_at,
             rejected_at=proposal.rejected_at,
+            ai_plan=(
+                AIPlanResponse.model_validate(proposal.payload["ai_plan"])
+                if proposal.payload.get("ai_plan")
+                else None
+            ),
         )
 
 
@@ -163,6 +170,15 @@ class ProposalRejectRequest(BaseModel):
         return list(dict.fromkeys(value))
 
 
+class ConversationMessage(BaseModel):
+    """One bounded user/assistant planning context message."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    role: Literal["user", "assistant"]
+    content: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=2000)]
+
+
 class AppliedItemResult(BaseModel):
     """Outcome for one requested proposal item."""
 
@@ -204,6 +220,7 @@ class ProposalGenerationRequest(BaseModel):
     preferences: dict[str, Any] = Field(default_factory=dict)
     focus_areas: list[str] = Field(default_factory=list, max_length=20)
     additional_notes: str | None = Field(default=None, max_length=2000)
+    conversation: list[ConversationMessage] = Field(default_factory=list, max_length=12)
 
     @field_validator("focus_areas")
     @classmethod

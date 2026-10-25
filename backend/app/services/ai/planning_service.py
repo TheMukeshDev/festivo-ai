@@ -153,8 +153,17 @@ class AIPlanningService:
 
         context = self.build_context(user_id, event_id, preferences)
         user_prompt = build_user_prompt(json.dumps(context, default=str))
+        schema_kwargs = (
+            {"schema": _GEMINI_RESPONSE_SCHEMA}
+            if getattr(self._provider, "supports_response_schema", False)
+            else {}
+        )
         try:
-            raw = self._provider.generate_structured(system=SYSTEM_PROMPT, user=user_prompt)
+            raw = self._provider.generate_structured(
+                system=SYSTEM_PROMPT,
+                user=user_prompt,
+                **schema_kwargs,
+            )
         except AIOutputValidationError:
             repair_prompt = (
                 user_prompt
@@ -163,6 +172,7 @@ class AIPlanningService:
             raw = self._provider.generate_structured(
                 system=SYSTEM_PROMPT,
                 user=repair_prompt,
+                **schema_kwargs,
             )
 
         if not isinstance(raw, dict):
@@ -191,3 +201,126 @@ class AIPlanningService:
     def _model_used(self) -> str:
         model = getattr(self._settings, "llm_model", None) if self._settings else None
         return model if isinstance(model, str) and model else "unknown"
+
+
+_GEMINI_RESPONSE_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "required": [
+        "event_id",
+        "summary",
+        "theme_ideas",
+        "recommendations",
+        "budget_suggestions",
+        "timeline_suggestions",
+        "task_suggestions",
+        "vendor_category_suggestions",
+        "risks_and_constraints",
+        "assumptions",
+        "next_steps",
+        "generated_at",
+        "model_used",
+    ],
+    "properties": {
+        "event_id": {"type": "string"},
+        "summary": {"type": "string"},
+        "theme_ideas": {"type": "array", "items": {"type": "string"}},
+        "recommendations": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "required": ["category", "description", "rationale", "priority", "assumptions"],
+                "properties": {
+                    "category": {"type": "string"},
+                    "description": {"type": "string"},
+                    "rationale": {"type": "string"},
+                    "priority": {
+                        "type": "string",
+                        "enum": ["low", "medium", "high", "critical"],
+                    },
+                    "assumptions": {"type": "array", "items": {"type": "string"}},
+                },
+            },
+        },
+        "budget_suggestions": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "required": [
+                    "category",
+                    "description",
+                    "source",
+                    "suggested_amount",
+                    "currency",
+                    "rationale",
+                    "exceeds_available",
+                    "assumptions",
+                ],
+                "properties": {
+                    "category": {"type": "string"},
+                    "description": {"type": "string"},
+                    "source": {
+                        "type": "string",
+                        "enum": [
+                            "suggested_allocation",
+                            "user_provided_budget",
+                            "existing_estimate_or_quote",
+                            "confirmed_expense",
+                        ],
+                    },
+                    "suggested_amount": {"type": "number"},
+                    "currency": {"type": "string"},
+                    "rationale": {"type": "string"},
+                    "exceeds_available": {"type": "boolean"},
+                    "assumptions": {"type": "array", "items": {"type": "string"}},
+                },
+            },
+        },
+        "timeline_suggestions": {"type": "array", "items": {"type": "string"}},
+        "task_suggestions": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "required": [
+                    "title",
+                    "explanation",
+                    "suggested_timing",
+                    "relative_deadline",
+                    "priority",
+                    "category",
+                ],
+                "properties": {
+                    "title": {"type": "string"},
+                    "explanation": {"type": "string"},
+                    "suggested_timing": {"type": "string"},
+                    "relative_deadline": {"type": "string"},
+                    "priority": {
+                        "type": "string",
+                        "enum": ["low", "medium", "high", "critical"],
+                    },
+                    "category": {"type": "string"},
+                },
+            },
+        },
+        "vendor_category_suggestions": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "required": ["category", "rationale", "priority", "notes"],
+                "properties": {
+                    "category": {"type": "string"},
+                    "rationale": {"type": "string"},
+                    "priority": {
+                        "type": "string",
+                        "enum": ["low", "medium", "high", "critical"],
+                    },
+                    "notes": {"type": "string"},
+                },
+            },
+        },
+        "risks_and_constraints": {"type": "array", "items": {"type": "string"}},
+        "assumptions": {"type": "array", "items": {"type": "string"}},
+        "next_steps": {"type": "array", "items": {"type": "string"}},
+        "generated_at": {"type": "string"},
+        "model_used": {"type": "string"},
+    },
+}

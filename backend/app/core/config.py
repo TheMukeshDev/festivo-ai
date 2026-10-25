@@ -43,7 +43,7 @@ class Settings(BaseSettings):
     supabase_jwt_leeway_seconds: int = Field(default=30, ge=0, le=300)
 
     frontend_origins: list[str] = Field(
-        default_factory=lambda: ["http://localhost:5173"],
+        default_factory=lambda: ["http://localhost:5173", "http://127.0.0.1:5173"],
         validation_alias=AliasChoices("FRONTEND_ORIGINS", "FRONTEND_ORIGIN"),
         description=(
             "Comma-separated or JSON-array list of explicit browser origins allowed by CORS."

@@ -16,6 +16,28 @@ def test_basic_health_returns_minimal_payload(client: TestClient) -> None:
     HealthResponse.model_validate(response.json())
 
 
+def test_service_entry_point_points_to_available_endpoints(client: TestClient) -> None:
+    response = client.get("/")
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "service": "Festivo AI",
+        "health": "/health",
+        "docs": "/docs",
+        "api_health": "/api/v1/health",
+    }
+
+
+def test_common_api_docs_alias_redirects_to_docs(client: TestClient) -> None:
+    docs = client.get("/api/docs", follow_redirects=False)
+    schema = client.get("/api/openapi.json", follow_redirects=False)
+
+    assert docs.status_code == 307
+    assert docs.headers["location"] == "/docs"
+    assert schema.status_code == 307
+    assert schema.headers["location"] == "/openapi.json"
+
+
 def test_versioned_health_returns_api_identity(client: TestClient) -> None:
     response = client.get("/api/v1/health")
 

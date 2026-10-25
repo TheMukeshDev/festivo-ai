@@ -21,6 +21,8 @@ from app.services.ai.base import (
 
 
 class GeminiProvider(AIProvider):
+    supports_response_schema = True
+
     def __init__(self, settings: Settings) -> None:
         self._settings = settings
         self._client = None
@@ -36,7 +38,12 @@ class GeminiProvider(AIProvider):
             from google import genai
 
             self._genai = genai
-            self._client = genai.Client(api_key=settings.gemini_api_key.get_secret_value())
+            self._client = genai.Client(
+                api_key=settings.gemini_api_key.get_secret_value(),
+                http_options=genai.types.HttpOptions(
+                    timeout=int(settings.llm_timeout_seconds * 1000),
+                ),
+            )
         except Exception as exc:
             raise AIConfigurationError(
                 "Gemini SDK is not available or could not be configured."

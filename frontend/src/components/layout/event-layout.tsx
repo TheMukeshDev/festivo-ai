@@ -61,7 +61,11 @@ export function EventLayout() {
         </Button>
 
         <div className="surface-card overflow-hidden">
-          <div className="flex flex-col gap-5 p-5 sm:p-6 lg:flex-row lg:items-start lg:justify-between">
+          <div className="relative flex flex-col gap-5 overflow-hidden p-5 sm:p-6 lg:flex-row lg:items-start lg:justify-between">
+            <div
+              className="pointer-events-none absolute -right-16 -top-24 size-56 rounded-full bg-primary-soft/60 blur-3xl"
+              aria-hidden="true"
+            />
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
                 <Badge tone="primary">{eventTypeLabel(event.event_type)}</Badge>
@@ -103,7 +107,7 @@ export function EventLayout() {
             </Button>
           </div>
 
-          <div className="overflow-x-auto border-t border-line bg-surface px-3 py-2 sm:px-5">
+          <div className="mobile-scroll overflow-x-auto border-t border-line bg-surface-raised/70 px-3 py-2 sm:px-5">
             <nav aria-label="Event sections" className="flex min-w-max items-center gap-1">
               {eventNav.map((item) => (
                 <NavLink
@@ -112,9 +116,9 @@ export function EventLayout() {
                   end={item.end ?? false}
                   className={({ isActive }) =>
                     cn(
-                      'rounded-sm px-3 py-2 text-sm font-medium transition-colors',
+                      'rounded-md px-3 py-2 text-sm font-medium transition-all',
                       isActive
-                        ? 'bg-primary-soft text-primary-strong'
+                        ? 'bg-primary-soft text-primary-strong shadow-sm'
                         : 'text-muted hover:bg-canvas hover:text-ink',
                     )
                   }

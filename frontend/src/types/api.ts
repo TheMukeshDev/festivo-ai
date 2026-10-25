@@ -375,10 +375,16 @@ export interface AiPlanResponse {
   model_used: string
 }
 
+export interface ConversationMessage {
+  role: 'user' | 'assistant'
+  content: string
+}
+
 export interface AiPlanRequest {
   preferences: Record<string, unknown>
   focus_areas: string[]
   additional_notes?: string | null
+  conversation?: ConversationMessage[]
 }
 
 export interface AiPlanStatus {
@@ -429,6 +435,7 @@ export interface ProposalRecord {
   expires_at: string
   approved_at: string | null
   rejected_at: string | null
+  ai_plan?: AiPlanResponse | null
 }
 
 export interface ProposalListResponse {

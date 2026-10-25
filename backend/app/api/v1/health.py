@@ -16,6 +16,21 @@ api_router = APIRouter(tags=["health"])
 
 
 @basic_router.get(
+    "/",
+    include_in_schema=False,
+    summary="Service entry point",
+)
+def service_entry_point() -> dict[str, str]:
+    """Point browser visitors to the health and API documentation endpoints."""
+    return {
+        "service": "Festivo AI",
+        "health": "/health",
+        "docs": "/docs",
+        "api_health": "/api/v1/health",
+    }
+
+
+@basic_router.get(
     "/health",
     response_model=HealthResponse,
     summary="Basic process health",

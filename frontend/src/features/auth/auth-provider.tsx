@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { toast } from 'sonner'
 
 import { UNAUTHORIZED_EVENT } from '@/lib/api/client'
@@ -21,9 +21,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [loading, setLoading] = useState(supabaseReady)
   const [session, setSession] = useState<AuthContextValue['session']>(null)
   const [sessionExpired, setSessionExpired] = useState(false)
+  const sessionRef = useRef<AuthContextValue['session']>(null)
 
   useEffect(() => {
     setAccessTokenProvider(async () => {
+      if (sessionRef.current?.access_token) {
+        return sessionRef.current.access_token
+      }
       if (!supabase) return null
       const { data } = await supabase.auth.getSession()
       return data.session?.access_token ?? null
@@ -46,17 +50,20 @@ export function AuthProvider({ children }: AuthProviderProps) {
         if (error) {
           toast.error('Your saved session could not be restored.')
         }
+        sessionRef.current = data.session
         setSession(data.session)
         setLoading(false)
       })
       .catch(() => {
         if (!mounted) return
+        sessionRef.current = null
         setSession(null)
         setLoading(false)
       })
 
     const { data: subscription } = client.auth.onAuthStateChange((event, nextSession) => {
       if (!mounted) return
+      sessionRef.current = nextSession
       setSession(nextSession)
       setLoading(false)
       if (event === 'SIGNED_IN') {
@@ -86,11 +93,17 @@ export function AuthProvider({ children }: AuthProviderProps) {
     if (!supabase) {
       throw new Error(supabaseConfigurationError ?? 'Authentication is unavailable.')
     }
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email: email.trim(),
       password,
     })
     if (error) throw new Error(error.message)
+    if (!data.session) {
+      throw new Error('Sign-in succeeded, but no session was returned. Please try again.')
+    }
+    sessionRef.current = data.session
+    setSession(data.session)
+    setSessionExpired(false)
   }, [])
 
   const signUp = useCallback(async (email: string, password: string, fullName: string) => {
@@ -113,6 +126,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     if (!supabase) return
     const { error } = await supabase.auth.signOut()
     if (error) throw new Error(authErrorMessage(error))
+    sessionRef.current = null
     setSession(null)
   }, [])
 
