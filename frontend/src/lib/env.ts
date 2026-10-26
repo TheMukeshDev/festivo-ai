@@ -11,9 +11,13 @@ const supabaseAnonKey =
   import.meta.env.VITE_SUPABASE_ANON_KEY?.trim() ||
   import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY?.trim() ||
   ''
+const appUrl = trimTrailingSlash(
+  import.meta.env.VITE_APP_URL?.trim() || window.location.origin,
+)
 
 export const env = {
   apiBaseUrl,
+  appUrl,
   supabaseUrl,
   supabaseAnonKey,
 } as const

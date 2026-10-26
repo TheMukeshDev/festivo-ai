@@ -24,6 +24,7 @@ Copy `.env.example` to `.env.local` and set:
 
 ```dotenv
 VITE_API_BASE_URL=http://127.0.0.1:8000
+VITE_APP_URL=http://localhost:5173
 VITE_SUPABASE_URL=https://your-project.supabase.co
 VITE_SUPABASE_ANON_KEY=your-public-anon-key
 ```

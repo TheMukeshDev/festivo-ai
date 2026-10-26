@@ -4,6 +4,7 @@ import { toast } from 'sonner'
 import { UNAUTHORIZED_EVENT } from '@/lib/api/client'
 import { setAccessTokenProvider } from '@/lib/api/token'
 import { supabase, supabaseConfigurationError, supabaseReady } from '@/lib/supabase/client'
+import { env } from '@/lib/env'
 import { AuthContext, type AuthContextValue } from '@/features/auth/auth-context'
 
 interface AuthProviderProps {
@@ -115,7 +116,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       password,
       options: {
         data: { full_name: fullName.trim() },
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
+        emailRedirectTo: `${env.appUrl}/auth/callback`,
       },
     })
     if (error) throw new Error(error.message)
@@ -135,7 +136,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       throw new Error(supabaseConfigurationError ?? 'Authentication is unavailable.')
     }
     const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-      redirectTo: `${window.location.origin}/reset-password`,
+      redirectTo: `${env.appUrl}/reset-password`,
     })
     if (error) throw new Error(authErrorMessage(error))
   }, [])
