@@ -17,8 +17,9 @@ Implemented capabilities:
 
 ## Supported Python version
 
-Python **3.15.1** has been used to install and validate the pinned dependency set on Windows x64.
-`pyproject.toml` constrains the project to Python `>=3.15,<3.16`. The pinned `tzdata` package supplies
+Python **3.12** is used to install and validate the pinned dependency set locally and on Vercel;
+Python 3.15 remains supported. `pyproject.toml` constrains the project to Python `>=3.12,<3.16`.
+The pinned `tzdata` package supplies
 IANA timezone data on platforms such as Windows that do not provide it system-wide.
 
 ## Setup
