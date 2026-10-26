@@ -6,6 +6,7 @@ import { AlertTriangle, ArrowRight } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { AuthLayout } from '@/features/auth/auth-layout'
+import { GoogleIcon } from '@/features/auth/google-icon'
 import { PasswordInput } from '@/features/auth/password-input'
 import { useAuth } from '@/features/auth/use-auth'
 import { Button } from '@/components/ui/button'
@@ -142,6 +143,7 @@ export function SignInPage() {
             }
           }}
         >
+          <GoogleIcon />
           Continue with Google
         </Button>
       </form>

@@ -2,17 +2,19 @@ import {
   browserLocalPersistence,
   confirmPasswordReset,
   createUserWithEmailAndPassword,
+  getRedirectResult,
   GoogleAuthProvider,
   onIdTokenChanged,
   sendPasswordResetEmail,
   setPersistence,
   signInWithEmailAndPassword,
-  signInWithPopup,
+  signInWithRedirect,
   signOut as firebaseSignOut,
   updatePassword as firebaseUpdatePassword,
   updateProfile,
   type User,
 } from 'firebase/auth'
+import type { FirebaseError } from 'firebase/app'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { toast } from 'sonner'
 
@@ -34,6 +36,37 @@ function toAuthUser(user: User): AuthUser {
     email_confirmed_at: user.emailVerified ? user.metadata.creationTime ?? null : null,
     created_at: user.metadata.creationTime ?? new Date(0).toISOString(),
     last_sign_in_at: user.metadata.lastSignInTime ?? null,
+  }
+}
+
+function getAuthErrorMessage(error: unknown, fallback: string): string {
+  if (!(error as FirebaseError)?.code) {
+    return error instanceof Error ? error.message : fallback
+  }
+
+  switch ((error as FirebaseError).code) {
+    case 'auth/invalid-credential':
+    case 'auth/wrong-password':
+      return 'The email or password is incorrect.'
+    case 'auth/user-not-found':
+      return 'No account was found for this email address.'
+    case 'auth/email-already-in-use':
+      return 'An account already exists for this email address. Sign in instead.'
+    case 'auth/popup-blocked':
+      return 'Google sign-in was blocked by the browser. Please allow redirects and try again.'
+    case 'auth/unauthorized-domain':
+      return 'This website is not authorized in Firebase Authentication settings.'
+    case 'auth/too-many-requests':
+      return 'Too many attempts. Wait a few minutes before trying again.'
+    case 'auth/invalid-action-code':
+    case 'auth/expired-action-code':
+      return 'This password reset link is invalid or has expired. Request a new one.'
+    case 'auth/missing-email':
+      return 'Enter your email address before requesting a reset link.'
+    case 'auth/operation-not-allowed':
+      return 'Email/password authentication is not enabled in Firebase Authentication.'
+    default:
+      return error instanceof Error ? error.message : fallback
   }
 }
 
@@ -64,6 +97,22 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setLoading(false)
     })
 
+    void getRedirectResult(client)
+      .then((result) => {
+        if (!mounted) return
+        if (result?.user) {
+          sessionRef.current = result.user
+          setSession(toAuthUser(result.user))
+        }
+      })
+      .catch((error: unknown) => {
+        if (mounted) toast.error(getAuthErrorMessage(error, 'Google sign-in failed.'))
+      })
+      .finally(() => {
+        if (!mounted) return
+        setLoading(false)
+      })
+
     const handleUnauthorized = () => {
       setSessionExpired(true)
       toast.error('Your session expired. Sign in again to continue.')
@@ -80,13 +129,17 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const signIn = useCallback(async (email: string, password: string) => {
     if (!firebaseAuth) throw new Error(firebaseConfigurationError ?? 'Authentication is unavailable.')
-    await signInWithEmailAndPassword(firebaseAuth, email.trim(), password)
+    try {
+      await signInWithEmailAndPassword(firebaseAuth, email.trim(), password)
+    } catch (error) {
+      throw new Error(getAuthErrorMessage(error, 'Could not sign in.'))
+    }
     setSessionExpired(false)
   }, [])
 
   const signInWithGoogle = useCallback(async () => {
     if (!firebaseAuth) throw new Error(firebaseConfigurationError ?? 'Authentication is unavailable.')
-    await signInWithPopup(firebaseAuth, new GoogleAuthProvider())
+    await signInWithRedirect(firebaseAuth, new GoogleAuthProvider())
     setSessionExpired(false)
   }, [])
 
@@ -106,16 +159,24 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const requestPasswordReset = useCallback(async (email: string) => {
     if (!firebaseAuth) throw new Error(firebaseConfigurationError ?? 'Authentication is unavailable.')
-    await sendPasswordResetEmail(firebaseAuth, email.trim(), {
-      url: `${env.appUrl}/reset-password`,
-      handleCodeInApp: true,
-    })
+    try {
+      await sendPasswordResetEmail(firebaseAuth, email.trim(), {
+        url: `${env.appUrl}/reset-password`,
+        handleCodeInApp: true,
+      })
+    } catch (error) {
+      throw new Error(getAuthErrorMessage(error, 'Could not send the reset email.'))
+    }
   }, [])
 
   const updatePassword = useCallback(async (password: string, actionCode?: string) => {
     if (!firebaseAuth) throw new Error(firebaseConfigurationError ?? 'Authentication is unavailable.')
     if (actionCode) {
-      await confirmPasswordReset(firebaseAuth, actionCode, password)
+      try {
+        await confirmPasswordReset(firebaseAuth, actionCode, password)
+      } catch (error) {
+        throw new Error(getAuthErrorMessage(error, 'Could not update your password.'))
+      }
       return
     }
     if (!firebaseAuth.currentUser) throw new Error('Your reset session has expired. Request a new link.')

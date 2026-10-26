@@ -1,11 +1,12 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm } from 'react-hook-form'
 import { ArrowRight, MailCheck } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { AuthLayout } from '@/features/auth/auth-layout'
+import { GoogleIcon } from '@/features/auth/google-icon'
 import { PasswordInput } from '@/features/auth/password-input'
 import { useAuth } from '@/features/auth/use-auth'
 import { Button } from '@/components/ui/button'
@@ -15,6 +16,7 @@ import { signUpSchema, type SignUpValues } from '@/lib/validation/auth'
 
 export function SignUpPage() {
   const auth = useAuth()
+  const navigate = useNavigate()
   const [formError, setFormError] = useState<string | null>(null)
   const [awaitingConfirmation, setAwaitingConfirmation] = useState(false)
   const {
@@ -163,6 +165,30 @@ export function SignUpPage() {
         <Button type="submit" className="w-full" size="lg" disabled={isSubmitting}>
           {isSubmitting ? 'Creating your workspace…' : 'Create account'}
           {!isSubmitting ? <ArrowRight aria-hidden="true" /> : null}
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          className="w-full"
+          size="lg"
+          disabled={isSubmitting}
+          onClick={async () => {
+            setFormError(null)
+            try {
+              await auth.signInWithGoogle()
+              toast.success('Your workspace is ready.')
+              navigate('/app', { replace: true })
+            } catch (error) {
+              setFormError(
+                error instanceof Error
+                  ? error.message
+                  : 'Could not continue with Google.',
+              )
+            }
+          }}
+        >
+          <GoogleIcon />
+          Continue with Google
         </Button>
         <p className="text-xs leading-5 text-muted">
           By creating an account you agree to keep vendor and payment decisions under your

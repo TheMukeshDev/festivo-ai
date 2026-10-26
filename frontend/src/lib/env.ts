@@ -24,4 +24,9 @@ export const env = {
   firebaseConfig,
 } as const
 
-export const isFirebaseConfigured = Object.values(env.firebaseConfig).every(Boolean)
+export const isFirebaseConfigured = Boolean(
+  env.firebaseConfig.apiKey &&
+    env.firebaseConfig.authDomain &&
+    env.firebaseConfig.projectId &&
+    env.firebaseConfig.appId,
+)
