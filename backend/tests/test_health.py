@@ -60,6 +60,15 @@ def test_database_health_reports_memory_backend(client: TestClient) -> None:
     DatabaseHealthResponse.model_validate(payload)
 
 
+def test_database_health_legacy_api_alias_reports_memory_backend(client: TestClient) -> None:
+    response = client.get("/api/health/database")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload == {"status": "ok", "database": "memory"}
+    DatabaseHealthResponse.model_validate(payload)
+
+
 def test_unhandled_exceptions_return_safe_structured_errors(app: FastAPI) -> None:
     secret = "never-return-this-secret"
     filesystem_marker = "C:\\private\\festivo\\credentials.txt"

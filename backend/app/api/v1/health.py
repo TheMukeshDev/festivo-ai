@@ -15,6 +15,7 @@ from app.schemas.health import (
 
 basic_router = APIRouter(tags=["health"])
 api_router = APIRouter(tags=["health"])
+compatibility_router = APIRouter(tags=["health"])
 
 
 @basic_router.get(
@@ -64,6 +65,12 @@ def api_health(request: Request) -> ApiHealthResponse:
         "Checks whether the configured persistence backend is reachable. "
         "Returns HTTP 503 when PostgreSQL is unavailable."
     ),
+)
+@compatibility_router.get(
+    "/health/database",
+    response_model=DatabaseHealthResponse,
+    status_code=status.HTTP_200_OK,
+    include_in_schema=False,
 )
 def database_health(request: Request, response: Response) -> DatabaseHealthResponse:
     """Report database connectivity without exposing connection details."""

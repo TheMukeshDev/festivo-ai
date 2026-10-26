@@ -11,7 +11,7 @@ from app.api.v1.ai_planning import router as ai_planning_router
 from app.api.v1.budgets import router as budgets_router
 from app.api.v1.events import router as events_router
 from app.api.v1.exports import router as exports_router
-from app.api.v1.health import api_router, basic_router
+from app.api.v1.health import api_router, basic_router, compatibility_router
 from app.api.v1.proposals import router as proposals_router
 from app.api.v1.timelines import router as timelines_router
 from app.api.v1.vendors import router as vendors_router
@@ -268,6 +268,7 @@ def create_app(
         prefix=resolved_settings.api_v1_prefix,
         tags=["v1"],
     )
+    application.include_router(compatibility_router, prefix="/api")
     for router in (
         events_router,
         budgets_router,

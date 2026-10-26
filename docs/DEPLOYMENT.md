@@ -54,9 +54,10 @@ variables:
 
 Production startup rejects debug mode, missing PostgreSQL configuration, and missing authentication
 configuration. Use `GET /health` as the platform process check and
-`GET /api/v1/health/database` as the database readiness check. The latter runs a lightweight
-database query and returns HTTP 503 when PostgreSQL is unavailable. OpenAPI and configuration
-diagnostics are disabled in production by default.
+`GET /api/v1/health/database` as the canonical database readiness check. The latter runs a
+lightweight database query and returns HTTP 503 when PostgreSQL is unavailable. For compatibility,
+`GET /api/health/database` resolves to the same check. OpenAPI and configuration diagnostics are
+disabled in production by default.
 
 Do not set `STORAGE_BACKEND=memory` in the deployed backend. Vercel functions are ephemeral and
 memory-backed events will disappear between invocations.
@@ -86,6 +87,11 @@ disable it in Firebase Authentication if it is abused.
    do not have a password to reset. Check spam/promotions folders and Firebase Authentication
    email templates if delivery fails.
 7. Redeploy the backend after changing CORS and run the smoke tests below.
+
+The frontend URL is not the backend URL. The `VITE_API_BASE_URL` value must point to the deployed
+backend project (for example, `https://<backend-domain>`), not to the frontend project's domain.
+When checking database connectivity directly, use the backend domain:
+`https://<backend-domain>/api/v1/health/database`.
 
 ## Supabase
 

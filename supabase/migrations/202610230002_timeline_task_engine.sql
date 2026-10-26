@@ -51,18 +51,33 @@ create table if not exists public.event_tasks (
     check (
         (status = 'completed' and completed_at is not null)
         or (status <> 'completed' and completed_at is null)
-    ),
-    check (
-        timeline_id is null
-        or exists (
-            select 1
-            from public.event_timelines
-            where event_timelines.id = event_tasks.timeline_id
-              and event_timelines.event_id = event_tasks.event_id
-              and event_timelines.owner_id = event_tasks.owner_id
-        )
     )
 );
+
+create or replace function public.validate_event_task_timeline()
+returns trigger
+language plpgsql
+as $$
+begin
+    if new.timeline_id is not null and not exists (
+        select 1
+        from public.event_timelines
+        where event_timelines.id = new.timeline_id
+          and event_timelines.event_id = new.event_id
+          and event_timelines.owner_id = new.owner_id
+    ) then
+        raise exception
+            'event_tasks.timeline_id must reference a timeline for the same event and owner'
+            using errcode = '23514';
+    end if;
+    return new;
+end;
+$$;
+
+drop trigger if exists event_tasks_timeline_consistency on public.event_tasks;
+create trigger event_tasks_timeline_consistency
+    before insert or update of timeline_id, event_id, owner_id on public.event_tasks
+    for each row execute function public.validate_event_task_timeline();
 
 comment on table public.event_tasks is
     'Planning tasks owned by the authenticated user; currency inherited from the event.';

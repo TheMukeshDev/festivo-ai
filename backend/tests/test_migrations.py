@@ -71,6 +71,15 @@ def test_migration_uses_non_reserved_constraint_column_name() -> None:
     assert "owner_id is reserved" in sql
 
 
+def test_migration_checksum_is_line_ending_independent(tmp_path: Path) -> None:
+    lf_file = tmp_path / "lf.sql"
+    crlf_file = tmp_path / "crlf.sql"
+    lf_file.write_bytes(b"create table example (id int);\n")
+    crlf_file.write_bytes(b"create table example (id int);\r\n")
+
+    assert apply_migrations._sha256(lf_file) == apply_migrations._sha256(crlf_file)
+
+
 def test_migration_script_exits_safely_without_database_url(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
