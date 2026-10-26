@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm } from 'react-hook-form'
@@ -15,6 +15,7 @@ export function ForgotPasswordPage() {
   const auth = useAuth()
   const [formError, setFormError] = useState<string | null>(null)
   const [sent, setSent] = useState(false)
+  const [cooldownSeconds, setCooldownSeconds] = useState(0)
   const {
     register,
     handleSubmit,
@@ -24,15 +25,26 @@ export function ForgotPasswordPage() {
     defaultValues: { email: '' },
   })
 
+  useEffect(() => {
+    if (cooldownSeconds === 0) return
+    const timer = window.setInterval(() => {
+      setCooldownSeconds((seconds) => Math.max(0, seconds - 1))
+    }, 1000)
+    return () => window.clearInterval(timer)
+  }, [cooldownSeconds])
+
   async function onSubmit(values: ForgotPasswordValues) {
     setFormError(null)
     try {
       await auth.requestPasswordReset(values.email)
       setSent(true)
     } catch (error) {
-      setFormError(
-        error instanceof Error ? error.message : 'Could not send the reset email.',
-      )
+      const message =
+        error instanceof Error ? error.message : 'Could not send the reset email.'
+      setFormError(message)
+      if (message.includes('temporarily rate-limited')) {
+        setCooldownSeconds(60)
+      }
     }
   }
 
@@ -94,8 +106,17 @@ export function ForgotPasswordPage() {
           </p>
         ) : null}
 
-        <Button type="submit" className="w-full" size="lg" disabled={isSubmitting}>
-          {isSubmitting ? 'Sending reset link…' : 'Send reset link'}
+        <Button
+          type="submit"
+          className="w-full"
+          size="lg"
+          disabled={isSubmitting || cooldownSeconds > 0}
+        >
+          {isSubmitting
+            ? 'Sending reset link…'
+            : cooldownSeconds > 0
+              ? `Try again in ${cooldownSeconds}s`
+              : 'Send reset link'}
         </Button>
       </form>
     </AuthLayout>

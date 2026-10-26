@@ -12,8 +12,12 @@ interface AuthProviderProps {
 }
 
 function authErrorMessage(error: unknown): string {
-  if (error instanceof Error && error.message.trim()) {
-    return error.message
+  const message = error instanceof Error ? error.message.trim() : ''
+  if (message) {
+    if (/rate limit|too many requests|email.*limit/i.test(message)) {
+      return 'Password reset emails are temporarily rate-limited. Please wait before requesting another email.'
+    }
+    return message
   }
   return 'Authentication failed. Please try again.'
 }
