@@ -77,13 +77,19 @@ def create_app(
         if (
             resolved_settings.firebase_auth_configured
             and resolved_settings.firebase_project_id
-            and resolved_settings.firebase_client_email
-            and resolved_settings.firebase_private_key
         ):
             resolved_auth_verifier = FirebaseTokenVerifier(
                 project_id=resolved_settings.firebase_project_id,
-                client_email=resolved_settings.firebase_client_email,
-                private_key=resolved_settings.firebase_private_key.get_secret_value(),
+                client_email=(
+                    resolved_settings.firebase_client_email
+                    if resolved_settings.firebase_client_email
+                    else None
+                ),
+                private_key=(
+                    resolved_settings.firebase_private_key.get_secret_value()
+                    if resolved_settings.firebase_private_key
+                    else None
+                ),
             )
         else:
             resolved_auth_verifier = RejectAllTokenVerifier()

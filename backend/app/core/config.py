@@ -253,9 +253,9 @@ class Settings(BaseSettings):
             raise ValueError("STORAGE_BACKEND must be 'postgres' in production.")
         if self.storage_backend == "postgres" and self.supabase_db_url is None:
             raise ValueError("SUPABASE_DB_URL is required when STORAGE_BACKEND is 'postgres'.")
-        if self.app_env == "production" and not self.firebase_auth_configured:
+        if self.app_env == "production" and not self.firebase_project_id:
             raise ValueError(
-                "FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, and FIREBASE_PRIVATE_KEY are required "
+                "FIREBASE_PROJECT_ID is required "
                 "in production."
             )
 
@@ -326,11 +326,7 @@ class Settings(BaseSettings):
     @property
     def firebase_auth_configured(self) -> bool:
         """Whether Firebase Admin token verification can be configured safely."""
-        return bool(
-            self.firebase_project_id
-            and self.firebase_client_email
-            and self.firebase_private_key
-        )
+        return bool(self.firebase_project_id)
 
     @property
     def llm_configuration_state(self) -> ConfigurationState:

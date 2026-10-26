@@ -5,8 +5,10 @@ from typing import Protocol
 from uuid import NAMESPACE_URL, UUID, uuid5
 
 import firebase_admin
+import jwt
 from firebase_admin import auth as firebase_auth
 from firebase_admin import credentials
+from jwt import PyJWKClient, PyJWKClientConnectionError, PyJWKClientError
 
 
 class AuthenticationError(Exception):
@@ -46,13 +48,20 @@ class FirebaseTokenVerifier:
         self,
         *,
         project_id: str,
-        client_email: str,
-        private_key: str,
+        client_email: str | None = None,
+        private_key: str | None = None,
     ) -> None:
         self._project_id = project_id
         self._client_email = client_email
         self._private_key = private_key
         self._app = None
+        self._jwk_client = PyJWKClient(
+            "https://www.googleapis.com/robot/v1/metadata/jwk/securetoken@system.gserviceaccount.com",
+            cache_keys=True,
+            cache_jwk_set=True,
+            lifespan=300,
+            timeout=10,
+        )
 
     @staticmethod
     def _get_or_create_app(project_id: str, client_email: str, private_key: str):
@@ -76,17 +85,32 @@ class FirebaseTokenVerifier:
             raise AuthenticationError
 
         try:
-            if self._app is None:
+            if self._client_email and self._private_key and self._app is None:
                 self._app = self._get_or_create_app(
                     self._project_id,
                     self._client_email,
                     self._private_key,
                 )
-            claims = firebase_auth.verify_id_token(token, app=self._app, check_revoked=True)
+            if self._app is not None:
+                claims = firebase_auth.verify_id_token(token, app=self._app, check_revoked=True)
+            else:
+                signing_key = self._jwk_client.get_signing_key_from_jwt(token)
+                claims = jwt.decode(
+                    token,
+                    signing_key.key,
+                    algorithms=["RS256"],
+                    audience=self._project_id,
+                    issuer=f"https://securetoken.google.com/{self._project_id}",
+                    options={"require": ["exp", "iat", "sub", "aud", "iss"]},
+                )
         except firebase_auth.RevokedIdTokenError:
             raise AuthenticationError from None
         except firebase_auth.UserDisabledError:
             raise AuthenticationError from None
+        except PyJWKClientConnectionError as exc:
+            raise AuthenticationUnavailableError from exc
+        except (PyJWKClientError, jwt.PyJWTError) as exc:
+            raise AuthenticationError from exc
         except (firebase_admin.exceptions.FirebaseError, ValueError) as exc:
             raise AuthenticationError from exc
 
