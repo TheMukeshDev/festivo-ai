@@ -31,3 +31,10 @@ class PostgresDatabase:
                 yield connection
         except (psycopg.OperationalError, psycopg.InterfaceError) as exc:
             raise StorageUnavailableError("The database is temporarily unavailable.") from exc
+
+    def check_connection(self) -> None:
+        """Verify that PostgreSQL accepts a short-lived connection."""
+        with self.connection() as connection, connection.cursor() as cursor:
+            cursor.execute("SELECT 1 AS health_check")
+            if cursor.fetchone() != {"health_check": 1}:
+                raise StorageUnavailableError("The database health check failed.")

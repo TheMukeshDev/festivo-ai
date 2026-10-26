@@ -238,6 +238,7 @@ def create_app(
             include_in_schema=False,
         )
     application.state.settings = resolved_settings
+    application.state.database = database
     application.state.event_service = resolved_event_service
     application.state.budget_service = resolved_budget_service
     application.state.timeline_service = resolved_timeline_service

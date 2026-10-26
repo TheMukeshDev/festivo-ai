@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from app.schemas.errors import ErrorResponse
-from app.schemas.health import ApiHealthResponse, HealthResponse
+from app.schemas.health import ApiHealthResponse, DatabaseHealthResponse, HealthResponse
 
 
 def test_basic_health_returns_minimal_payload(client: TestClient) -> None:
@@ -49,6 +49,15 @@ def test_versioned_health_returns_api_identity(client: TestClient) -> None:
         "api_version": "v1",
     }
     ApiHealthResponse.model_validate(payload)
+
+
+def test_database_health_reports_memory_backend(client: TestClient) -> None:
+    response = client.get("/api/v1/health/database")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload == {"status": "ok", "database": "memory"}
+    DatabaseHealthResponse.model_validate(payload)
 
 
 def test_unhandled_exceptions_return_safe_structured_errors(app: FastAPI) -> None:

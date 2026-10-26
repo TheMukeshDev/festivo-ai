@@ -1,12 +1,14 @@
 """Process health and safe configuration diagnostics endpoints."""
 
-from fastapi import APIRouter, HTTPException, Request, status
+from fastapi import APIRouter, HTTPException, Request, Response, status
 
 from app.core.config import Settings
+from app.core.exceptions import StorageUnavailableError
 from app.schemas.errors import ErrorResponse
 from app.schemas.health import (
     ApiHealthResponse,
     ConfigurationStatusResponse,
+    DatabaseHealthResponse,
     HealthResponse,
     LLMConfigurationStatus,
 )
@@ -51,6 +53,36 @@ def api_health(request: Request) -> ApiHealthResponse:
     """Report API health without asserting external service availability."""
     settings: Settings = request.app.state.settings
     return ApiHealthResponse(service=settings.app_name)
+
+
+@api_router.get(
+    "/health/database",
+    response_model=DatabaseHealthResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Database readiness",
+    description=(
+        "Checks whether the configured persistence backend is reachable. "
+        "Returns HTTP 503 when PostgreSQL is unavailable."
+    ),
+)
+def database_health(request: Request, response: Response) -> DatabaseHealthResponse:
+    """Report database connectivity without exposing connection details."""
+    settings: Settings = request.app.state.settings
+    database = request.app.state.database
+    if settings.storage_backend == "memory":
+        return DatabaseHealthResponse(status="ok", database="memory")
+
+    if database is None:
+        response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
+        return DatabaseHealthResponse(status="unavailable", database="postgres")
+
+    try:
+        database.check_connection()
+    except StorageUnavailableError:
+        response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
+        return DatabaseHealthResponse(status="unavailable", database="postgres")
+
+    return DatabaseHealthResponse(status="ok", database="postgres")
 
 
 @api_router.get(

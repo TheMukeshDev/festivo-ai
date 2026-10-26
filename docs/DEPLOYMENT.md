@@ -53,8 +53,10 @@ variables:
 - `LLM_ENABLED`, `LLM_PROVIDER`, `LLM_MODEL`, and `GEMINI_API_KEY` when AI planning is enabled
 
 Production startup rejects debug mode, missing PostgreSQL configuration, and missing authentication
-configuration. Use `GET /health` as the platform health check. OpenAPI and configuration diagnostics
-are disabled in production by default.
+configuration. Use `GET /health` as the platform process check and
+`GET /api/v1/health/database` as the database readiness check. The latter runs a lightweight
+database query and returns HTTP 503 when PostgreSQL is unavailable. OpenAPI and configuration
+diagnostics are disabled in production by default.
 
 Do not set `STORAGE_BACKEND=memory` in the deployed backend. Vercel functions are ephemeral and
 memory-backed events will disappear between invocations.
@@ -102,10 +104,11 @@ separate Supabase project for development, tests, and production.
 
 1. Open the frontend and confirm the landing page loads.
 2. Confirm `GET /health` returns a healthy response.
-3. Sign in with a non-production test account.
-4. Create an event, budget, task, and vendor.
-5. Generate an AI plan only when Gemini is configured.
-6. Review/approve a proposal and download PDF and CSV exports.
-7. Confirm a second test account receives no access to the first account's event.
+3. Confirm `GET /api/v1/health/database` returns `{"status":"ok","database":"postgres"}`.
+4. Sign in with a non-production test account.
+5. Create an event, budget, task, and vendor.
+6. Generate an AI plan only when Gemini is configured.
+7. Review/approve a proposal and download PDF and CSV exports.
+8. Confirm a second test account receives no access to the first account's event.
 
 Do not run destructive smoke tests against production data.

@@ -6,6 +6,8 @@ from pydantic import BaseModel, Field
 
 ConfigurationState = Literal["disabled", "incomplete", "configured"]
 ConnectivityState = Literal["not_checked"]
+DatabaseHealthState = Literal["ok", "unavailable"]
+DatabaseBackend = Literal["memory", "postgres"]
 
 
 class HealthResponse(BaseModel):
@@ -19,6 +21,13 @@ class ApiHealthResponse(HealthResponse):
 
     service: str = Field(description="Application name.")
     api_version: Literal["v1"] = Field(default="v1", description="API major version.")
+
+
+class DatabaseHealthResponse(BaseModel):
+    """Safe database readiness information."""
+
+    status: DatabaseHealthState = Field(description="Whether the database can be reached.")
+    database: DatabaseBackend = Field(description="Configured persistence backend.")
 
 
 class LLMConfigurationStatus(BaseModel):

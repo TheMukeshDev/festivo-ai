@@ -4,7 +4,12 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from pydantic import BaseModel, Field
 
-from app.schemas.health import ApiHealthResponse, ConfigurationStatusResponse, HealthResponse
+from app.schemas.health import (
+    ApiHealthResponse,
+    ConfigurationStatusResponse,
+    DatabaseHealthResponse,
+    HealthResponse,
+)
 
 
 class PlanRequest(BaseModel):
@@ -35,9 +40,11 @@ def test_openapi_schema_generation_and_routes(client: TestClient) -> None:
 def test_health_endpoints_conform_to_declared_models(client: TestClient) -> None:
     basic_payload = client.get("/health").json()
     versioned_payload = client.get("/api/v1/health").json()
+    database_payload = client.get("/api/v1/health/database").json()
 
     HealthResponse.model_validate(basic_payload)
     ApiHealthResponse.model_validate(versioned_payload)
+    DatabaseHealthResponse.model_validate(database_payload)
 
 
 def test_configuration_status_conforms_to_declared_model(client: TestClient) -> None:
