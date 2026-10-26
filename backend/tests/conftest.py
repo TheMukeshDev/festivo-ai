@@ -54,6 +54,9 @@ _ENV_KEYS = (
     "SUPABASE_JWKS_URL",
     "SUPABASE_JWT_ISSUER",
     "SUPABASE_JWT_AUDIENCE",
+    "FIREBASE_PROJECT_ID",
+    "FIREBASE_CLIENT_EMAIL",
+    "FIREBASE_PRIVATE_KEY",
 )
 
 
@@ -94,7 +97,9 @@ def make_settings() -> Callable[..., Settings]:
         }
         values.update(overrides)
         if values.get("app_env") == "production":
-            values.setdefault("supabase_url", "https://test-project.supabase.co")
+            values.setdefault("firebase_project_id", "test-project")
+            values.setdefault("firebase_client_email", "firebase-adminsdk@test-project.iam.gserviceaccount.com")
+            values.setdefault("firebase_private_key", "test-private-key")
         return Settings(**values)
 
     return factory

@@ -16,8 +16,8 @@ from app.api.v1.proposals import router as proposals_router
 from app.api.v1.timelines import router as timelines_router
 from app.api.v1.vendors import router as vendors_router
 from app.core.auth import (
+    FirebaseTokenVerifier,
     RejectAllTokenVerifier,
-    SupabaseTokenVerifier,
     TokenVerifier,
 )
 from app.core.config import Settings, get_settings
@@ -74,14 +74,16 @@ def create_app(
         )
 
     if auth_verifier is None:
-        jwks_url = resolved_settings.resolved_jwks_url
-        issuer = resolved_settings.resolved_jwt_issuer
-        if resolved_settings.auth_configured and jwks_url and issuer:
-            resolved_auth_verifier: TokenVerifier = SupabaseTokenVerifier(
-                jwks_url=jwks_url,
-                issuer=issuer,
-                audience=resolved_settings.supabase_jwt_audience,
-                leeway_seconds=resolved_settings.supabase_jwt_leeway_seconds,
+        if (
+            resolved_settings.firebase_auth_configured
+            and resolved_settings.firebase_project_id
+            and resolved_settings.firebase_client_email
+            and resolved_settings.firebase_private_key
+        ):
+            resolved_auth_verifier = FirebaseTokenVerifier(
+                project_id=resolved_settings.firebase_project_id,
+                client_email=resolved_settings.firebase_client_email,
+                private_key=resolved_settings.firebase_private_key.get_secret_value(),
             )
         else:
             resolved_auth_verifier = RejectAllTokenVerifier()

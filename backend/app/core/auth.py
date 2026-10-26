@@ -1,11 +1,12 @@
-"""Supabase access-token verification and authenticated user identity."""
+"""Firebase ID-token verification and authenticated user identity."""
 
 from dataclasses import dataclass
 from typing import Protocol
-from uuid import UUID
+from uuid import NAMESPACE_URL, UUID, uuid5
 
-import jwt
-from jwt import PyJWKClient, PyJWKClientConnectionError, PyJWKClientError
+import firebase_admin
+from firebase_admin import auth as firebase_auth
+from firebase_admin import credentials
 
 
 class AuthenticationError(Exception):
@@ -18,9 +19,10 @@ class AuthenticationUnavailableError(Exception):
 
 @dataclass(frozen=True, slots=True)
 class AuthenticatedUser:
-    """The verified user identity derived from a Supabase access token."""
+    """The verified user identity derived from a Firebase ID token."""
 
     user_id: UUID
+    firebase_uid: str | None = None
 
 
 class TokenVerifier(Protocol):
@@ -37,67 +39,63 @@ class RejectAllTokenVerifier:
         raise AuthenticationError
 
 
-class SupabaseTokenVerifier:
-    """Verify Supabase ES256/RS256 access tokens against the project JWKS."""
-
-    _ALGORITHMS = ("ES256", "RS256")
+class FirebaseTokenVerifier:
+    """Verify Firebase ID tokens with the Firebase Admin SDK."""
 
     def __init__(
         self,
         *,
-        jwks_url: str,
-        issuer: str,
-        audience: str = "authenticated",
-        leeway_seconds: int = 30,
-        jwk_client: PyJWKClient | None = None,
+        project_id: str,
+        client_email: str,
+        private_key: str,
     ) -> None:
-        self._issuer = issuer.rstrip("/")
-        self._audience = audience
-        self._leeway_seconds = leeway_seconds
-        self._jwk_client = jwk_client or PyJWKClient(
-            jwks_url,
-            cache_keys=True,
-            cache_jwk_set=True,
-            lifespan=300,
-            timeout=10,
-        )
+        self._project_id = project_id
+        self._client_email = client_email
+        self._private_key = private_key
+        self._app = None
+
+    @staticmethod
+    def _get_or_create_app(project_id: str, client_email: str, private_key: str):
+        app_name = f"festivo-{project_id}"
+        try:
+            return firebase_admin.get_app(app_name)
+        except ValueError:
+            credential = credentials.Certificate(
+                {
+                    "type": "service_account",
+                    "project_id": project_id,
+                    "private_key": private_key.replace("\\n", "\n"),
+                    "client_email": client_email,
+                    "token_uri": "https://oauth2.googleapis.com/token",
+                }
+            )
+            return firebase_admin.initialize_app(credential, name=app_name)
 
     def verify(self, token: str) -> AuthenticatedUser:
         if not token:
             raise AuthenticationError
 
         try:
-            signing_key = self._jwk_client.get_signing_key_from_jwt(token)
-            claims = jwt.decode(
-                token,
-                signing_key.key,
-                algorithms=list(self._ALGORITHMS),
-                audience=self._audience,
-                issuer=self._issuer,
-                leeway=self._leeway_seconds,
-                options={
-                    "require": ["exp", "iat", "sub", "aud", "iss"],
-                    "verify_exp": True,
-                    "verify_iat": True,
-                    "verify_aud": True,
-                    "verify_iss": True,
-                    "verify_signature": True,
-                },
-            )
-        except PyJWKClientConnectionError as exc:
-            raise AuthenticationUnavailableError from exc
-        except (PyJWKClientError, jwt.PyJWTError, ValueError) as exc:
+            if self._app is None:
+                self._app = self._get_or_create_app(
+                    self._project_id,
+                    self._client_email,
+                    self._private_key,
+                )
+            claims = firebase_auth.verify_id_token(token, app=self._app, check_revoked=True)
+        except firebase_auth.RevokedIdTokenError:
+            raise AuthenticationError from None
+        except firebase_auth.UserDisabledError:
+            raise AuthenticationError from None
+        except (firebase_admin.exceptions.FirebaseError, ValueError) as exc:
             raise AuthenticationError from exc
 
-        if claims.get("role") != "authenticated":
-            raise AuthenticationError
         raw_user_id = claims.get("sub")
-        if not isinstance(raw_user_id, str):
+        if not isinstance(raw_user_id, str) or not raw_user_id:
             raise AuthenticationError
-        try:
-            user_id = UUID(raw_user_id)
-        except ValueError as exc:
-            raise AuthenticationError from exc
-        if str(user_id) != raw_user_id.lower():
+        if claims.get("aud") != self._project_id:
             raise AuthenticationError
-        return AuthenticatedUser(user_id=user_id)
+        return AuthenticatedUser(
+            user_id=uuid5(NAMESPACE_URL, f"firebase:{self._project_id}:{raw_user_id}"),
+            firebase_uid=raw_user_id,
+        )

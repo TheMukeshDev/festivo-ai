@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest'
 import { AppProviders } from '@/app/providers'
 import { createAppQueryClient } from '@/app/query-client'
 import { routes } from '@/app/router'
-import { isSupabaseConfigured } from '@/lib/env'
+import { isFirebaseConfigured } from '@/lib/env'
 
 function renderAt(path: string) {
   const router = createMemoryRouter(routes, { initialEntries: [path] })
@@ -34,7 +34,7 @@ describe('application routes', () => {
   })
 
   it('protects the workspace when authentication is not configured', async () => {
-    if (isSupabaseConfigured) return
+    if (isFirebaseConfigured) return
 
     renderAt('/app')
     expect(await screen.findByText('Authentication is not configured')).toBeInTheDocument()

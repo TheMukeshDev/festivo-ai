@@ -16,7 +16,7 @@ shortlists, vendor comparison, and human-reviewed AI planning suggestions.
 
 - Node.js 20 or newer
 - The FastAPI backend running locally or at a reachable URL
-- A Supabase project with authentication enabled
+- A Firebase project with Email/Password and Google sign-in enabled
 
 ## Environment
 
@@ -25,11 +25,15 @@ Copy `.env.example` to `.env.local` and set:
 ```dotenv
 VITE_API_BASE_URL=http://127.0.0.1:8000
 VITE_APP_URL=http://localhost:5173
-VITE_SUPABASE_URL=https://your-project.supabase.co
-VITE_SUPABASE_ANON_KEY=your-public-anon-key
+VITE_FIREBASE_API_KEY=your-web-api-key
+VITE_FIREBASE_AUTH_DOMAIN=your-project.firebaseapp.com
+VITE_FIREBASE_PROJECT_ID=your-project-id
+VITE_FIREBASE_STORAGE_BUCKET=your-project.firebasestorage.app
+VITE_FIREBASE_MESSAGING_SENDER_ID=your-sender-id
+VITE_FIREBASE_APP_ID=your-app-id
 ```
 
-Only public browser values belong here. Never add a Supabase service-role key, database URL,
+Only public browser values belong here. Never add a Firebase Admin private key, database URL,
 Gemini credential, or any backend secret to a `VITE_` variable. AI calls and database access go
 through the backend.
 

@@ -87,7 +87,7 @@ export function SignUpPage() {
           role="status"
         >
           {auth.configurationMessage ??
-            'Authentication is not configured. Add the Supabase URL and anon key to the frontend environment.'}
+            'Authentication is not configured. Add the Firebase web app settings to the frontend environment.'}
         </div>
       ) : null}
 

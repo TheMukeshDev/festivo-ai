@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm } from 'react-hook-form'
@@ -15,6 +15,7 @@ import { resetPasswordSchema, type ResetPasswordValues } from '@/lib/validation/
 export function ResetPasswordPage() {
   const auth = useAuth()
   const navigate = useNavigate()
+  const actionCode = useMemo(() => new URLSearchParams(window.location.search).get('oobCode'), [])
   const [formError, setFormError] = useState<string | null>(null)
   const {
     register,
@@ -28,7 +29,7 @@ export function ResetPasswordPage() {
   async function onSubmit(values: ResetPasswordValues) {
     setFormError(null)
     try {
-      await auth.updatePassword(values.password)
+      await auth.updatePassword(values.password, actionCode ?? undefined)
       toast.success('Password updated. Sign in with your new password.')
       await auth.signOut()
       navigate('/sign-in', { replace: true })
@@ -39,7 +40,7 @@ export function ResetPasswordPage() {
     }
   }
 
-  if (!auth.loading && !auth.session) {
+  if (!actionCode) {
     return (
       <AuthLayout
         title="Reset link expired"

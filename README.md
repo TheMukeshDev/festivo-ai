@@ -9,7 +9,7 @@ vendor checklist, and AI-generated improvement proposals while preserving explic
 The backend is at version **0.8.0** and includes:
 
 - Secure FastAPI foundation with strict validation, safe errors, explicit CORS, and versioned routes.
-- Supabase access-token authentication and owner-scoped event access.
+- Firebase ID-token authentication and owner-scoped event access.
 - Event CRUD with timezone-aware date policy and deterministic pagination.
 - Decimal-safe budget planning, planned expenses, and optimistic concurrency.
 - Deterministic timeline generation and task lifecycle management.
@@ -68,7 +68,7 @@ Backend:
 - psycopg 3 for direct PostgreSQL access
 - Google Gemini through `google-genai`
 - ReportLab for PDF exports
-- PyJWT for Supabase access-token verification
+- Firebase Admin SDK for server-side ID-token verification
 - pytest with FastAPI TestClient
 - Ruff for linting
 
@@ -88,8 +88,8 @@ Copy-Item .env.example .env
 ```
 
 The health and configuration routes start without credentials, but protected product routes require a
-valid Supabase access token. Configure `SUPABASE_URL` (or explicit JWKS/issuer settings) in
-`backend/.env`. Do not commit real credentials.
+valid Firebase ID token. Configure `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, and
+`FIREBASE_PRIVATE_KEY` in `backend/.env`. Do not commit real credentials.
 
 Memory storage disappears on restart. To use Supabase PostgreSQL, set `STORAGE_BACKEND=postgres`,
 configure `SUPABASE_DB_URL` as a server-side secret, and apply migrations:

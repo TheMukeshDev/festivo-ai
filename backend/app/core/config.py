@@ -44,6 +44,9 @@ class Settings(BaseSettings):
     supabase_jwt_issuer: str | None = None
     supabase_jwt_audience: str = Field(default="authenticated", min_length=1, max_length=100)
     supabase_jwt_leeway_seconds: int = Field(default=30, ge=0, le=300)
+    firebase_project_id: str | None = None
+    firebase_client_email: str | None = None
+    firebase_private_key: SecretStr | None = None
 
     frontend_origins: list[str] = Field(
         default_factory=lambda: ["http://localhost:5173", "http://127.0.0.1:5173"],
@@ -250,9 +253,9 @@ class Settings(BaseSettings):
             raise ValueError("STORAGE_BACKEND must be 'postgres' in production.")
         if self.storage_backend == "postgres" and self.supabase_db_url is None:
             raise ValueError("SUPABASE_DB_URL is required when STORAGE_BACKEND is 'postgres'.")
-        if self.app_env == "production" and not self.auth_configured:
+        if self.app_env == "production" and not self.firebase_auth_configured:
             raise ValueError(
-                "SUPABASE_URL or SUPABASE_JWKS_URL and SUPABASE_JWT_ISSUER are required "
+                "FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, and FIREBASE_PRIVATE_KEY are required "
                 "in production."
             )
 
@@ -317,8 +320,17 @@ class Settings(BaseSettings):
 
     @property
     def auth_configured(self) -> bool:
-        """Whether access-token verification can be configured safely."""
-        return self.resolved_jwks_url is not None and self.resolved_jwt_issuer is not None
+        """Backward-compatible alias for Firebase authentication configuration."""
+        return self.firebase_auth_configured
+
+    @property
+    def firebase_auth_configured(self) -> bool:
+        """Whether Firebase Admin token verification can be configured safely."""
+        return bool(
+            self.firebase_project_id
+            and self.firebase_client_email
+            and self.firebase_private_key
+        )
 
     @property
     def llm_configuration_state(self) -> ConfigurationState:

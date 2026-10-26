@@ -6,11 +6,14 @@ const apiBaseUrl = trimTrailingSlash(
   import.meta.env.VITE_API_BASE_URL?.trim() || 'http://127.0.0.1:8000',
 )
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL?.trim() ?? ''
-const supabaseAnonKey =
-  import.meta.env.VITE_SUPABASE_ANON_KEY?.trim() ||
-  import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY?.trim() ||
-  ''
+const firebaseConfig = {
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY?.trim() ?? '',
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN?.trim() ?? '',
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID?.trim() ?? '',
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET?.trim() ?? '',
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID?.trim() ?? '',
+  appId: import.meta.env.VITE_FIREBASE_APP_ID?.trim() ?? '',
+}
 const appUrl = trimTrailingSlash(
   import.meta.env.VITE_APP_URL?.trim() || window.location.origin,
 )
@@ -18,8 +21,7 @@ const appUrl = trimTrailingSlash(
 export const env = {
   apiBaseUrl,
   appUrl,
-  supabaseUrl,
-  supabaseAnonKey,
+  firebaseConfig,
 } as const
 
-export const isSupabaseConfigured = Boolean(env.supabaseUrl && env.supabaseAnonKey)
+export const isFirebaseConfigured = Object.values(env.firebaseConfig).every(Boolean)

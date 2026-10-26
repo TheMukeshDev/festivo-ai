@@ -76,7 +76,7 @@ export function SignInPage() {
           role="status"
         >
           {auth.configurationMessage ??
-            'Authentication is not configured. Add the Supabase URL and anon key to the frontend environment.'}
+            'Authentication is not configured. Add the Firebase web app settings to the frontend environment.'}
         </div>
       ) : null}
 
@@ -125,6 +125,24 @@ export function SignInPage() {
         <Button type="submit" className="w-full" size="lg" disabled={isSubmitting}>
           {isSubmitting ? 'Signing in…' : 'Sign in'}
           {!isSubmitting ? <ArrowRight aria-hidden="true" /> : null}
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          className="w-full"
+          size="lg"
+          disabled={isSubmitting}
+          onClick={async () => {
+            setFormError(null)
+            try {
+              await auth.signInWithGoogle()
+              navigate(redirectTo, { replace: true })
+            } catch (error) {
+              setFormError(error instanceof Error ? error.message : 'Could not sign in with Google.')
+            }
+          }}
+        >
+          Continue with Google
         </Button>
       </form>
     </AuthLayout>

@@ -2,14 +2,14 @@
 
 ## Trust boundaries
 
-The browser receives only the Supabase project URL, a public anon/publishable key, and short-lived
-access tokens managed by Supabase Auth. The backend owns database access, Gemini credentials, budget
+The browser receives only Firebase web configuration and short-lived ID tokens managed by Firebase
+Authentication. The backend owns database access, Firebase Admin credentials, Gemini credentials, budget
 calculations, proposal application, and report generation.
 
-The API validates Supabase JWT signatures using the project JWKS and requires `exp`, `iat`, `sub`,
-`aud`, `iss`, and the `authenticated` role. Repository operations include the verified token subject
-as the owner filter. Cross-owner resources return not-found responses rather than confirming
-existence.
+The API validates Firebase ID tokens with the Firebase Admin SDK, including signature, issuer,
+audience, expiry, and revocation. Repository operations use a deterministic UUID derived from the
+verified Firebase UID as the owner filter. Cross-owner resources return not-found responses rather
+than confirming existence.
 
 ## Database controls
 
@@ -26,7 +26,7 @@ browser clients direct database access as a workaround.
 Never put any of these in a `VITE_*` variable, source file, report, or log:
 
 - `SUPABASE_DB_URL`
-- Supabase service-role keys
+- Firebase Admin service-account credentials
 - `GEMINI_API_KEY`
 - JWT signing secrets
 - Database passwords

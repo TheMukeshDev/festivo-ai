@@ -12,7 +12,7 @@ from app.core.auth import (
     TokenVerifier,
 )
 
-_bearer = HTTPBearer(auto_error=False, scheme_name="SupabaseBearer")
+_bearer = HTTPBearer(auto_error=False, scheme_name="FirebaseBearer")
 
 
 def get_current_user(

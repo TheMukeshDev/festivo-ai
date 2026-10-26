@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.12,<3.16"
 dependencies = [
     "fastapi==0.160.0",
+    "firebase-admin==7.1.0",
     "google-genai==1.2.0",
     "pydantic==2.14.1",
     "psycopg==3.3.6",

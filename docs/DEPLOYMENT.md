@@ -1,7 +1,7 @@
 # Festivo AI deployment guide
 
 This guide describes separate Vercel deployments for the React/Vite frontend and FastAPI backend,
-with Supabase providing authentication and PostgreSQL persistence.
+with Firebase providing authentication and Supabase PostgreSQL persistence.
 
 ## Frontend
 
@@ -14,12 +14,16 @@ Deploy `frontend/` as its own Vercel project.
 - Output directory: `dist`
 - Required variables:
   - `VITE_API_BASE_URL`: public HTTPS URL of the FastAPI service
-  - `VITE_SUPABASE_URL`: Supabase project URL
-  - `VITE_SUPABASE_ANON_KEY`: public Supabase anon/publishable key
+  - `VITE_FIREBASE_API_KEY`
+  - `VITE_FIREBASE_AUTH_DOMAIN`
+  - `VITE_FIREBASE_PROJECT_ID`
+  - `VITE_FIREBASE_STORAGE_BUCKET`
+  - `VITE_FIREBASE_MESSAGING_SENDER_ID`
+  - `VITE_FIREBASE_APP_ID`
 
 `frontend/vercel.json` configures the SPA fallback to `index.html`. After deployment, add the
 production frontend origin to the backend `FRONTEND_ORIGINS` setting and add the frontend URL to
-the Supabase Auth redirect allow-list, including the callback path `/auth/callback`.
+Firebase Authentication authorized domains.
 
 ## Backend
 
@@ -38,8 +42,9 @@ Set `APP_ENV=production`, `STORAGE_BACKEND=postgres`, and configure these Vercel
 variables:
 
 - `SUPABASE_DB_URL`
-- `SUPABASE_URL` or both `SUPABASE_JWKS_URL` and `SUPABASE_JWT_ISSUER`
-- `SUPABASE_JWT_AUDIENCE`
+- `FIREBASE_PROJECT_ID`
+- `FIREBASE_CLIENT_EMAIL`
+- `FIREBASE_PRIVATE_KEY`
 - `FRONTEND_ORIGINS` with the exact frontend URL, for example
   `https://festivo-ai.vercel.app`
 - `LLM_ENABLED`, `LLM_PROVIDER`, `LLM_MODEL`, and `GEMINI_API_KEY` when AI planning is enabled
@@ -56,9 +61,10 @@ memory-backed events will disappear between invocations.
 1. Create a Vercel project from this repository with root directory `backend`; deploy it first.
 2. Copy its HTTPS URL and verify `https://<backend-domain>/health`.
 3. Create a second Vercel project with root directory `frontend`.
-4. Set `VITE_API_BASE_URL` to the backend URL and set the Supabase public variables.
+4. Set `VITE_API_BASE_URL` to the backend URL and set the Firebase public variables.
 5. Deploy the frontend, then update backend `FRONTEND_ORIGINS` to the final frontend URL.
-6. Add the frontend URL and `/auth/callback` to Supabase Authentication URL configuration.
+6. Add the frontend domain to Firebase Authentication authorized domains and enable the
+   Email/Password and Google providers.
 7. Redeploy the backend after changing CORS and run the smoke tests below.
 
 ## Supabase

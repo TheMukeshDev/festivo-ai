@@ -6,7 +6,7 @@ PostgreSQL persistence.
 
 Implemented capabilities:
 
-- Supabase access-token verification with fail-closed ownership enforcement.
+- Firebase ID-token verification with fail-closed ownership enforcement.
 - Decimal-safe budget planning with optimistic concurrency.
 - Deterministic timeline generation and task management.
 - Vendor checklists, booking status, pricing fields, and comparison.
@@ -52,11 +52,9 @@ the local `.env` file.
 | `STORAGE_BACKEND` | `memory` or `postgres` | `memory` |
 | `SUPABASE_DB_URL` | Server-only PostgreSQL URI; required for `postgres` | unset |
 | `SUPABASE_DB_CONNECT_TIMEOUT_SECONDS` | Database connection timeout, 1-60 | `10` |
-| `SUPABASE_URL` | Project URL used to derive the JWKS URL and issuer | unset |
-| `SUPABASE_JWKS_URL` | Explicit Supabase JWKS endpoint | derived from `SUPABASE_URL` |
-| `SUPABASE_JWT_ISSUER` | Explicit token issuer | derived from `SUPABASE_URL` |
-| `SUPABASE_JWT_AUDIENCE` | Required token audience | `authenticated` |
-| `SUPABASE_JWT_LEEWAY_SECONDS` | Clock-skew allowance, 0-300 | `30` |
+| `FIREBASE_PROJECT_ID` | Firebase project identifier | unset |
+| `FIREBASE_CLIENT_EMAIL` | Firebase Admin service-account email | unset |
+| `FIREBASE_PRIVATE_KEY` | Firebase Admin service-account private key | unset |
 | `FRONTEND_ORIGIN` | One explicit CORS origin | `http://localhost:5173` |
 | `FRONTEND_ORIGINS` | Comma-separated or JSON-array CORS origins | Uses `FRONTEND_ORIGIN` |
 | `LLM_PROVIDER` | LLM provider identifier | `gemini` |
@@ -84,7 +82,7 @@ Important configuration behavior:
 - `STORAGE_BACKEND=postgres` requires a valid `postgres://` or `postgresql://` URL.
 - `SUPABASE_DB_URL` is stored as `SecretStr` and is never included in API responses or configuration
   diagnostics.
-- Authentication is configured from `SUPABASE_URL`, or explicit JWKS/issuer settings. Without a
+- Authentication is configured from the Firebase Admin service-account variables. Without a
   verifier configuration, every protected route rejects tokens; the application never falls back to
   anonymous access.
 - When `LLM_ENABLED=true`, both `GEMINI_API_KEY` and `LLM_MODEL` are required. Proposal generation
@@ -108,9 +106,9 @@ database connections.
 
 The backend does **not** use the Supabase JavaScript/Python SDK. Direct PostgreSQL access was chosen
 because budget and proposal mutations require explicit transactions, row locks, and optimistic
-version checks. `SUPABASE_DB_URL` is the database credential. `SUPABASE_URL` or the explicit
-JWKS/issuer settings are used separately for access-token verification. Browser keys belong in the
-frontend environment and are not read by the backend.
+version checks. `SUPABASE_DB_URL` is the database credential. Firebase Admin service-account variables are used
+separately for ID-token verification. Browser keys belong in the frontend environment and are not
+read by the backend.
 
 Before using PostgreSQL:
 
@@ -352,13 +350,13 @@ active spending plan; a future phase may add an explicit re-baseline operation.
 
 ## Authentication and ownership
 
-Protected routes verify Supabase access tokens against the project JWKS. Verification requires the
-token issuer, audience (`authenticated` by default), signature, expiry, issued-at time, and an
-`authenticated` role claim. The user's `sub` UUID becomes the owner ID for every event-scoped query.
+Protected routes verify Firebase ID tokens with the Firebase Admin SDK. Verification checks the
+signature, issuer, audience, expiry, and revocation status. The verified Firebase UID is mapped to
+a deterministic UUID that becomes the owner ID for every event-scoped query.
 
 - Missing, malformed, expired, or misconfigured tokens return `401`.
 - A reachable but invalid token has the same `401` response.
-- An unavailable JWKS endpoint returns a safe `503`.
+- Invalid or revoked Firebase tokens return the same safe `401` response.
 - Events owned by another user return `404`, never `403`, to avoid confirming resource existence.
 - The backend fails closed when authentication is not configured; there is no anonymous fallback.
 
