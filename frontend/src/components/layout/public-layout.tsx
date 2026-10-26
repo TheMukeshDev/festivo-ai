@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, Outlet } from 'react-router-dom'
-import { ArrowRight, Menu, X } from 'lucide-react'
+import { ArrowRight, Menu } from 'lucide-react'
 
 import { Brand } from '@/components/layout/brand'
 import { Button } from '@/components/ui/button'
@@ -25,7 +25,14 @@ export function PublicLayout() {
   const [menuOpen, setMenuOpen] = useState(false)
 
   return (
-    <div className="min-h-screen bg-canvas">
+    <div className="flex min-h-screen flex-col bg-canvas">
+      <a
+        href="#main-content"
+        className="sr-only z-[100] rounded-sm bg-primary px-4 py-2 text-white focus:not-sr-only focus:fixed focus:left-4 focus:top-4"
+      >
+        Skip to main content
+      </a>
+
       <header className="sticky top-0 z-40 border-b border-line/80 bg-canvas/90 backdrop-blur">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
           <Brand />
@@ -83,7 +90,7 @@ export function PublicLayout() {
                     className="flex items-center justify-between rounded-sm px-3 py-3 text-sm font-medium text-ink-soft hover:bg-canvas"
                   >
                     {link.label}
-                    <X className="size-3 opacity-0" aria-hidden="true" />
+                    <ArrowRight className="size-3.5 text-muted" aria-hidden="true" />
                   </a>
                 ))}
               </nav>
@@ -114,7 +121,7 @@ export function PublicLayout() {
         </div>
       </header>
 
-      <main id="main-content">
+      <main id="main-content" className="flex-1">
         <Outlet />
       </main>
 
@@ -127,7 +134,10 @@ export function PublicLayout() {
               one editable workspace.
             </p>
           </div>
-          <div className="grid grid-cols-2 gap-8 text-sm sm:grid-cols-3">
+          <nav
+            aria-label="Footer navigation"
+            className="grid grid-cols-2 gap-8 text-sm sm:grid-cols-3"
+          >
             <div>
               <p className="font-semibold text-ink">Product</p>
               <ul className="mt-3 space-y-2 text-muted">
@@ -173,7 +183,7 @@ export function PublicLayout() {
                 </li>
               </ul>
             </div>
-          </div>
+          </nav>
         </div>
         <div className="border-t border-line/70 py-5">
           <p className="mx-auto max-w-7xl px-4 text-xs text-muted sm:px-6 lg:px-8">
