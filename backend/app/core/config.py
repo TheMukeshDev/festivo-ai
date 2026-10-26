@@ -14,6 +14,11 @@ BACKEND_DIR = Path(__file__).resolve().parents[2]
 ENV_FILE = BACKEND_DIR / ".env"
 
 ConfigurationState = Literal["disabled", "incomplete", "configured"]
+DEFAULT_FRONTEND_ORIGINS = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "https://festivoai01.vercel.app",
+]
 
 
 class Settings(BaseSettings):
@@ -49,7 +54,7 @@ class Settings(BaseSettings):
     firebase_private_key: SecretStr | None = None
 
     frontend_origins: list[str] = Field(
-        default_factory=lambda: ["http://localhost:5173", "http://127.0.0.1:5173"],
+        default_factory=lambda: list(DEFAULT_FRONTEND_ORIGINS),
         validation_alias=AliasChoices(
             "FRONTEND_ORIGINS",
             "FRONTEND_ORIGIN",

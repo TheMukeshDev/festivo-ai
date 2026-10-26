@@ -48,7 +48,8 @@ variables:
 - `FIREBASE_CLIENT_EMAIL`
 - `FIREBASE_PRIVATE_KEY`
 - `FRONTEND_ORIGINS` with the exact frontend URL, for example
-  `https://festivo-ai.vercel.app`
+  `https://festivoai01.vercel.app` (the deployed backend also includes this origin by
+  default, but setting the variable explicitly is recommended when using a custom domain)
 - `LLM_ENABLED`, `LLM_PROVIDER`, `LLM_MODEL`, and `GEMINI_API_KEY` when AI planning is enabled
 
 Production startup rejects debug mode, missing PostgreSQL configuration, and missing authentication

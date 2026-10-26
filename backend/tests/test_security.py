@@ -40,6 +40,27 @@ def test_configured_cors_origin_is_allowed_without_credentials(
     assert "access-control-allow-credentials" not in preflight.headers
 
 
+def test_authenticated_preflight_allows_frontend_origin(
+    make_settings: Callable[..., Settings],
+) -> None:
+    settings = make_settings(frontend_origins=["https://festivoai01.vercel.app"])
+
+    with TestClient(create_app(settings)) as test_client:
+        preflight = test_client.options(
+            "/api/v1/events",
+            headers={
+                "Origin": "https://festivoai01.vercel.app",
+                "Access-Control-Request-Method": "GET",
+                "Access-Control-Request-Headers": "authorization,content-type",
+            },
+        )
+
+    assert preflight.status_code == 200
+    assert preflight.headers["access-control-allow-origin"] == "https://festivoai01.vercel.app"
+    assert "authorization" in preflight.headers["access-control-allow-headers"].lower()
+    assert "content-type" in preflight.headers["access-control-allow-headers"].lower()
+
+
 def test_unconfigured_cors_origin_is_not_authorized(make_settings: Callable[..., Settings]) -> None:
     settings = make_settings(frontend_origins=["https://festivo.example"])
 
