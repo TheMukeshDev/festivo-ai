@@ -72,6 +72,9 @@ the local `.env` file.
 | `DOCS_ENABLED` | Override OpenAPI/docs exposure | enabled outside production |
 | `CONFIG_STATUS_ENABLED` | Override configuration diagnostics exposure | enabled outside production |
 
+For compatibility with an existing Vercel project, `DATABASE_URL` is also accepted as
+`SUPABASE_DB_URL`, and `CORS_ORIGINS` is also accepted as `FRONTEND_ORIGINS`.
+
 Important configuration behavior:
 
 - Wildcard CORS origins are rejected. CORS credentials are always disabled.

@@ -1,5 +1,7 @@
 """Validated proposal lifecycle and explicit owner approval application."""
 
+from __future__ import annotations
+
 from dataclasses import replace
 from datetime import datetime, timedelta
 from decimal import Decimal, InvalidOperation

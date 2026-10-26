@@ -33,7 +33,10 @@ class Settings(BaseSettings):
     app_timezone: str = Field(default="Asia/Kolkata", min_length=1, max_length=100)
 
     storage_backend: Literal["memory", "postgres"] = "memory"
-    supabase_db_url: SecretStr | None = None
+    supabase_db_url: SecretStr | None = Field(
+        default=None,
+        validation_alias=AliasChoices("SUPABASE_DB_URL", "DATABASE_URL"),
+    )
     supabase_db_connect_timeout_seconds: int = Field(default=10, ge=1, le=60)
 
     supabase_url: str | None = None
@@ -44,7 +47,11 @@ class Settings(BaseSettings):
 
     frontend_origins: list[str] = Field(
         default_factory=lambda: ["http://localhost:5173", "http://127.0.0.1:5173"],
-        validation_alias=AliasChoices("FRONTEND_ORIGINS", "FRONTEND_ORIGIN"),
+        validation_alias=AliasChoices(
+            "FRONTEND_ORIGINS",
+            "FRONTEND_ORIGIN",
+            "CORS_ORIGINS",
+        ),
         description=(
             "Comma-separated or JSON-array list of explicit browser origins allowed by CORS."
         ),
