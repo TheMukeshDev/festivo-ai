@@ -91,6 +91,17 @@ The health and configuration routes start without credentials, but protected pro
 valid Firebase ID token. Configure `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, and
 `FIREBASE_PRIVATE_KEY` in `backend/.env`. Do not commit real credentials.
 
+## Reviewer demo account
+
+The deployed frontend provides a **Use demo account** shortcut on the sign-in page:
+
+- Email: `demo@festivoai.com`
+- Password: `FestivoDemo@2026!`
+
+This is a dedicated Firebase test account for reviewing the application. Do not store real
+personal data in it. Firebase password recovery sends a secure reset link, not an OTP; Google-only
+accounts do not have a password to reset.
+
 Memory storage disappears on restart. To use Supabase PostgreSQL, set `STORAGE_BACKEND=postgres`,
 configure `SUPABASE_DB_URL` as a server-side secret, and apply migrations:
 

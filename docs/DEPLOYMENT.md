@@ -20,6 +20,8 @@ Deploy `frontend/` as its own Vercel project.
   - `VITE_FIREBASE_STORAGE_BUCKET`
   - `VITE_FIREBASE_MESSAGING_SENDER_ID`
   - `VITE_FIREBASE_APP_ID`
+  - Optional reviewer shortcut: `VITE_DEMO_EMAIL` and `VITE_DEMO_PASSWORD`, configured only
+    with a dedicated non-production Firebase test account
 
 `frontend/vercel.json` configures the SPA fallback to `index.html`. After deployment, add the
 production frontend origin to the backend `FRONTEND_ORIGINS` setting and add the frontend URL to
@@ -56,6 +58,17 @@ are disabled in production by default.
 Do not set `STORAGE_BACKEND=memory` in the deployed backend. Vercel functions are ephemeral and
 memory-backed events will disappear between invocations.
 
+## Reviewer demo account
+
+The deployed frontend includes an optional **Use demo account** shortcut backed by a dedicated
+Firebase test user. The current reviewer credentials are:
+
+- Email: `demo@festivoai.com`
+- Password: `FestivoDemo@2026!`
+
+This account is for testing only and must not contain real personal or event data. Rotate or
+disable it in Firebase Authentication if it is abused.
+
 ## Vercel deployment sequence
 
 1. Create a Vercel project from this repository with root directory `backend`; deploy it first.
@@ -65,6 +78,10 @@ memory-backed events will disappear between invocations.
 5. Deploy the frontend, then update backend `FRONTEND_ORIGINS` to the final frontend URL.
 6. Add the frontend domain to Firebase Authentication authorized domains and enable the
    Email/Password and Google providers.
+7. For password reset, remember that Firebase sends a secure reset link rather than an OTP. The
+   user must exist in Firebase Authentication with Email/Password enabled; Google-only accounts
+   do not have a password to reset. Check spam/promotions folders and Firebase Authentication
+   email templates if delivery fails.
 7. Redeploy the backend after changing CORS and run the smoke tests below.
 
 ## Supabase

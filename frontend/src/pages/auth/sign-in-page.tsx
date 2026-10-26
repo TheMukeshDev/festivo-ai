@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button'
 import { FormField } from '@/components/ui/form-field'
 import { Input } from '@/components/ui/input'
 import { signInSchema, type SignInValues } from '@/lib/validation/auth'
+import { env } from '@/lib/env'
 
 export function SignInPage() {
   const auth = useAuth()
@@ -21,6 +22,7 @@ export function SignInPage() {
   const [formError, setFormError] = useState<string | null>(null)
   const {
     register,
+    setValue,
     handleSubmit,
     formState: { errors, isSubmitting },
   } = useForm<SignInValues>({
@@ -31,6 +33,7 @@ export function SignInPage() {
   const fromState = (location.state as { from?: unknown } | null)?.from
   const redirectTo =
     typeof fromState === 'string' && fromState.startsWith('/') ? fromState : '/app'
+  const demoConfigured = Boolean(env.demoEmail && env.demoPassword)
 
   async function onSubmit(values: SignInValues) {
     setFormError(null)
@@ -146,6 +149,21 @@ export function SignInPage() {
           <GoogleIcon />
           Continue with Google
         </Button>
+        {demoConfigured ? (
+          <Button
+            type="button"
+            variant="ghost"
+            className="w-full"
+            disabled={isSubmitting}
+            onClick={() => {
+              setValue('email', env.demoEmail)
+              setValue('password', env.demoPassword)
+              setFormError(null)
+            }}
+          >
+            Use demo account
+          </Button>
+        ) : null}
       </form>
     </AuthLayout>
   )

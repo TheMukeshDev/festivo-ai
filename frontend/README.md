@@ -31,6 +31,10 @@ VITE_FIREBASE_PROJECT_ID=your-project-id
 VITE_FIREBASE_STORAGE_BUCKET=your-project.firebasestorage.app
 VITE_FIREBASE_MESSAGING_SENDER_ID=your-sender-id
 VITE_FIREBASE_APP_ID=your-app-id
+
+# Optional reviewer shortcut. Configure only with a dedicated Firebase test account.
+# VITE_DEMO_EMAIL=demo@example.com
+# VITE_DEMO_PASSWORD=use-a-dedicated-test-password
 ```
 
 Only public browser values belong here. Never add a Firebase Admin private key, database URL,
@@ -39,6 +43,20 @@ through the backend.
 
 The backend must allow the frontend origin through CORS. The default development origin is
 `http://localhost:5173`.
+
+### Password reset troubleshooting
+
+Firebase sends a password-reset link, not an OTP. The address must exist in Firebase
+Authentication and must have the Email/Password provider enabled. Google-only accounts do not
+have a Firebase password to reset. Also verify that the deployed frontend domain is listed under
+Firebase Authentication authorized domains and check spam/promotions folders.
+
+For reviewer testing, the production app has a dedicated demo account:
+
+- Email: `demo@festivoai.com`
+- Password: `FestivoDemo@2026!`
+
+This is a non-production test account. Do not use it for personal data.
 
 ## Commands
 

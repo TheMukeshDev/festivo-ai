@@ -17,11 +17,15 @@ const firebaseConfig = {
 const appUrl = trimTrailingSlash(
   import.meta.env.VITE_APP_URL?.trim() || window.location.origin,
 )
+const demoEmail = import.meta.env.VITE_DEMO_EMAIL?.trim() ?? ''
+const demoPassword = import.meta.env.VITE_DEMO_PASSWORD?.trim() ?? ''
 
 export const env = {
   apiBaseUrl,
   appUrl,
   firebaseConfig,
+  demoEmail,
+  demoPassword,
 } as const
 
 export const isFirebaseConfigured = Boolean(
