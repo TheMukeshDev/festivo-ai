@@ -50,8 +50,20 @@ TaskMoney = Annotated[
 def _normalize_datetime(value: object) -> object:
     if value is None:
         return None
+    if isinstance(value, str):
+        candidate = value.strip()
+        if not candidate:
+            raise ValueError("Due date must be an ISO-8601 timestamp with a timezone.")
+        try:
+            value = datetime.fromisoformat(candidate.replace("Z", "+00:00"))
+        except ValueError as exc:
+            raise ValueError(
+                "Due date must be an ISO-8601 timestamp with a timezone."
+            ) from exc
     if not isinstance(value, datetime):
         raise ValueError("Due date must be an ISO-8601 timestamp with a timezone.")
+    if value.tzinfo is None or value.utcoffset() is None:
+        raise ValueError("Due date must include a timezone offset.")
     return coerce_utc(value)
 
 

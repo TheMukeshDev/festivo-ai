@@ -139,8 +139,9 @@ export function SignInPage() {
           onClick={async () => {
             setFormError(null)
             try {
+              // Redirects to Google; the return trip lands in the workspace
+              // once the session is restored (no client-side navigation here).
               await auth.signInWithGoogle()
-              navigate(redirectTo, { replace: true })
             } catch (error) {
               setFormError(error instanceof Error ? error.message : 'Could not sign in with Google.')
             }

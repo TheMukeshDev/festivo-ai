@@ -91,7 +91,9 @@ function UserPanel() {
         </span>
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-semibold text-ink">{displayName}</p>
-          <p className="truncate text-xs text-muted">{auth.user?.email}</p>
+          {displayName !== auth.user?.email ? (
+            <p className="truncate text-xs text-muted">{auth.user?.email}</p>
+          ) : null}
         </div>
       </div>
       <Button

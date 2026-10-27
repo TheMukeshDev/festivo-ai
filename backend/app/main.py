@@ -3,7 +3,7 @@
 from datetime import timedelta
 from zoneinfo import ZoneInfo
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
 
@@ -249,6 +249,15 @@ def create_app(
     application.state.planning_orchestration_service = resolved_orchestration_service
     application.state.report_service = resolved_report_service
     application.state.auth_verifier = resolved_auth_verifier
+
+    if database is not None:
+
+        @application.middleware("http")
+        async def bind_request_database(request: Request, call_next):
+            # One pooled connection per request: repositories reuse it instead
+            # of paying a fresh Supabase round trip (hundreds of ms) each.
+            with database.request_scope():
+                return await call_next(request)
 
     application.add_middleware(
         CORSMiddleware,

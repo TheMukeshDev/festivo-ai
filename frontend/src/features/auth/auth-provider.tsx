@@ -85,6 +85,19 @@ export function AuthProvider({ children }: AuthProviderProps) {
     if (!firebaseAuth) return
 
     let mounted = true
+    // Keep the loading gate closed until BOTH the restored session and any
+    // pending Google redirect are resolved. Otherwise a returning Google user
+    // briefly lands on the sign-in page before the workspace.
+    let sessionResolved = false
+    let redirectResolved = false
+    const releaseGate = () => {
+      if (mounted && sessionResolved && redirectResolved) setLoading(false)
+    }
+    const gateTimer = window.setTimeout(() => {
+      sessionResolved = true
+      redirectResolved = true
+      releaseGate()
+    }, 8000)
     const client = firebaseAuth
     void setPersistence(client, browserLocalPersistence).catch(() => {
       if (mounted) toast.error('Persistent sign-in could not be enabled.')
@@ -94,7 +107,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
       if (!mounted) return
       sessionRef.current = user
       setSession(user ? toAuthUser(user) : null)
-      setLoading(false)
+      sessionResolved = true
+      releaseGate()
     })
 
     void getRedirectResult(client)
@@ -110,7 +124,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
       })
       .finally(() => {
         if (!mounted) return
-        setLoading(false)
+        redirectResolved = true
+        releaseGate()
       })
 
     const handleUnauthorized = () => {
@@ -122,6 +137,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     window.addEventListener(UNAUTHORIZED_EVENT, handleUnauthorized)
     return () => {
       mounted = false
+      window.clearTimeout(gateTimer)
       unsubscribe()
       window.removeEventListener(UNAUTHORIZED_EVENT, handleUnauthorized)
     }
@@ -145,8 +161,17 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const signUp = useCallback(async (email: string, password: string, fullName: string) => {
     if (!firebaseAuth) throw new Error(firebaseConfigurationError ?? 'Authentication is unavailable.')
-    const result = await createUserWithEmailAndPassword(firebaseAuth, email.trim(), password)
-    await updateProfile(result.user, { displayName: fullName.trim() })
+    let result: Awaited<ReturnType<typeof createUserWithEmailAndPassword>>
+    try {
+      result = await createUserWithEmailAndPassword(firebaseAuth, email.trim(), password)
+    } catch (error) {
+      throw new Error(getAuthErrorMessage(error, 'Could not create the account.'))
+    }
+    try {
+      await updateProfile(result.user, { displayName: fullName.trim() })
+    } catch {
+      // The account exists even if the display name could not be saved.
+    }
     return { needsEmailConfirmation: false }
   }, [])
 
@@ -180,7 +205,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
       return
     }
     if (!firebaseAuth.currentUser) throw new Error('Your reset session has expired. Request a new link.')
-    await firebaseUpdatePassword(firebaseAuth.currentUser, password)
+    try {
+      await firebaseUpdatePassword(firebaseAuth.currentUser, password)
+    } catch (error) {
+      throw new Error(getAuthErrorMessage(error, 'Could not update your password.'))
+    }
   }, [])
 
   const clearSessionExpired = useCallback(() => setSessionExpired(false), [])

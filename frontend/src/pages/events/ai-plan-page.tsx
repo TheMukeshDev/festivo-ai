@@ -407,6 +407,23 @@ function PlanResults({
   )
 }
 
+function readStoredConversation(eventId: string): ConversationMessage[] {
+  const key = `festivo-ai-conversation:${eventId}`
+  try {
+    const stored = sessionStorage.getItem(key)
+    if (!stored) return []
+    const parsed = JSON.parse(stored) as unknown
+    if (!Array.isArray(parsed)) {
+      sessionStorage.removeItem(key)
+      return []
+    }
+    return (parsed as ConversationMessage[]).slice(-12)
+  } catch {
+    sessionStorage.removeItem(key)
+    return []
+  }
+}
+
 function AiPlanContent({ eventId }: { eventId: string }) {
   const eventQuery = useEventQuery(eventId)
   const statusQuery = useAiStatusQuery(eventId)
@@ -414,18 +431,9 @@ function AiPlanContent({ eventId }: { eventId: string }) {
   const [preferences, setPreferences] = useState('')
   const [notes, setNotes] = useState('')
   const [question, setQuestion] = useState('')
-  const [conversation, setConversation] = useState<ConversationMessage[]>([])
-
-  useEffect(() => {
-    const stored = sessionStorage.getItem(`festivo-ai-conversation:${eventId}`)
-    if (!stored) return
-    try {
-      const parsed = JSON.parse(stored) as ConversationMessage[]
-      if (Array.isArray(parsed)) setConversation(parsed.slice(-12))
-    } catch {
-      sessionStorage.removeItem(`festivo-ai-conversation:${eventId}`)
-    }
-  }, [eventId])
+  const [conversation, setConversation] = useState<ConversationMessage[]>(() =>
+    readStoredConversation(eventId),
+  )
 
   useEffect(() => {
     if (conversation.length) {
@@ -766,5 +774,5 @@ function AiPlanContent({ eventId }: { eventId: string }) {
 export function AiPlanPage() {
   const { eventId } = useParams()
   if (!eventId) return null
-  return <AiPlanContent eventId={eventId} />
+  return <AiPlanContent key={eventId} eventId={eventId} />
 }

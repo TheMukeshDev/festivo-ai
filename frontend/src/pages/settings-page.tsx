@@ -125,7 +125,7 @@ export function SettingsPage() {
             <CardContent className="space-y-3 text-sm">
               <div className="flex items-center justify-between gap-4">
                 <span className="text-muted">Provider</span>
-                <span className="font-medium text-ink">Supabase Auth</span>
+                <span className="font-medium text-ink">Email & Google (Firebase)</span>
               </div>
               <div className="flex items-center justify-between gap-4">
                 <span className="text-muted">Configuration</span>
@@ -160,8 +160,8 @@ export function SettingsPage() {
             </CardHeader>
             <CardContent className="space-y-3 text-sm">
               <p className="leading-6 text-ink-soft">
-                Festivo stores events, budgets, expenses, timelines, tasks, and vendor
-                shortlists. Proposals and file exports are not part of this build.
+                Festivo stores events, budgets, expenses, timelines, tasks, vendor shortlists,
+                and AI proposals. PDF and CSV exports download straight from this workspace.
               </p>
               <Button asChild variant="outline" size="sm">
                 <Link to="/app/events">Manage events</Link>

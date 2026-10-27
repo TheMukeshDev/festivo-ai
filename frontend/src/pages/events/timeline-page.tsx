@@ -144,11 +144,13 @@ function TaskDialog({
     setFormError(null)
     try {
       await mutation.mutateAsync(values)
-      await queryClient.invalidateQueries({
-        queryKey: queryKeys.tasks(event.event_id),
-      })
       toast.success(task ? 'Task updated.' : 'Task added.')
       onOpenChange(false)
+      // Refresh in the background so the dialog closes immediately instead of
+      // waiting for a full refetch round trip on top of the save request.
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.tasks(event.event_id),
+      })
     } catch (error) {
       if (error instanceof ApiError && error.isValidation) {
         for (const field of error.fields) {
@@ -448,10 +450,10 @@ function TimelineContent({ event }: { event: EventRecord }) {
           status: task.status === 'completed' ? 'pending' : 'completed',
         },
       })
-      await queryClient.invalidateQueries({
+      toast.success(task.status === 'completed' ? 'Task reopened.' : 'Task completed.')
+      void queryClient.invalidateQueries({
         queryKey: queryKeys.tasks(event.event_id),
       })
-      toast.success(task.status === 'completed' ? 'Task reopened.' : 'Task completed.')
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Could not update the task.')
     }
@@ -557,7 +559,17 @@ function TimelineContent({ event }: { event: EventRecord }) {
               <RefreshCcw aria-hidden="true" />
               {regenerateMutation.isPending ? 'Refreshing…' : 'Add missing starter tasks'}
             </Button>
-          ) : null}
+          ) : (
+            <Button
+              type="button"
+              size="sm"
+              onClick={handleGenerate}
+              disabled={generateMutation.isPending}
+            >
+              <CalendarRange aria-hidden="true" />
+              {generateMutation.isPending ? 'Generating…' : 'Generate timeline'}
+            </Button>
+          )}
           <Button
             type="button"
             size="sm"

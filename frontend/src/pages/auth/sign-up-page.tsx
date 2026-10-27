@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm } from 'react-hook-form'
 import { ArrowRight, MailCheck } from 'lucide-react'
@@ -16,7 +16,6 @@ import { signUpSchema, type SignUpValues } from '@/lib/validation/auth'
 
 export function SignUpPage() {
   const auth = useAuth()
-  const navigate = useNavigate()
   const [formError, setFormError] = useState<string | null>(null)
   const [awaitingConfirmation, setAwaitingConfirmation] = useState(false)
   const {
@@ -175,9 +174,10 @@ export function SignUpPage() {
           onClick={async () => {
             setFormError(null)
             try {
+              // The browser leaves for Google here; do not navigate or show a
+              // success toast — that raced the redirect and bounced users back
+              // to the sign-in page on return.
               await auth.signInWithGoogle()
-              toast.success('Your workspace is ready.')
-              navigate('/app', { replace: true })
             } catch (error) {
               setFormError(
                 error instanceof Error

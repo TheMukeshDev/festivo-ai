@@ -24,7 +24,7 @@ export function ProtectedRoute({ children }: { children: ReactNode }) {
             title="Authentication is not configured"
             description={
               auth.configurationMessage ??
-              'Add the public Supabase URL and anon key to the frontend environment.'
+              'Add the public Firebase web config (VITE_FIREBASE_* variables) to the frontend environment.'
             }
             action={
               <Button asChild variant="outline">

@@ -117,7 +117,8 @@ class TimelineService:
             updated_at=now,
         )
         tasks = self._build_tasks(event, timeline, now)
-        return self._planning_repository.create_timeline(timeline, tasks)
+        created = self._planning_repository.create_timeline(timeline, tasks)
+        return created, tasks
 
     def get(self, owner_id: UUID, raw_event_id: str) -> Timeline:
         event = self._require_event(owner_id, raw_event_id)

@@ -35,3 +35,5 @@ frontend/.vite/
 .DS_Store
 Thumbs.db
 *.log
+.vercel
+.env*
