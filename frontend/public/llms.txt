@@ -8,11 +8,17 @@ Festivo AI helps you turn an event brief into an editable budget, timeline, vend
 
 ## Features
 
-- [Event Planning](https://festivoai01.vercel.app/) - Create and manage events with comprehensive details
-- [Budget Management](https://festivoai01.vercel.app/app) - Decimal-safe budget planning with expense tracking
-- [Timeline Generation](https://festivoai01.vercel.app/app) - Automated timeline creation and task management
-- [Vendor Management](https://festivoai01.vercel.app/app) - Vendor checklists, quotes, and booking management
-- [AI Suggestions](https://festivoai01.vercel.app/app) - Gemini-backed AI planning with human approval workflow
+- **Event Planning**: Create and manage events with comprehensive details at [festivoai01.vercel.app](https://festivoai01.vercel.app)
+- **Budget Management**: Decimal-safe budget planning with expense tracking
+- **Timeline Generation**: Automated timeline creation and task management
+- **Vendor Management**: Vendor checklists, quotes, and booking management
+- **AI Suggestions**: Gemini-backed AI planning with human approval workflow
+
+## Documentation
+
+- [Documentation](https://festivoai01.vercel.app) - Access the application
+- [Privacy Policy](https://festivoai01.vercel.app/privacy)
+- [Terms of Service](https://festivoai01.vercel.app/terms)
 
 ## Usage
 
