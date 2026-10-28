@@ -1,30 +1,39 @@
 import { createBrowserRouter, type RouteObject } from 'react-router-dom'
+import { lazy, Suspense } from 'react'
 
 import { AppShell } from '@/components/layout/app-shell'
 import { EventLayout } from '@/components/layout/event-layout'
 import { PublicLayout } from '@/components/layout/public-layout'
 import { ProtectedRoute, PublicOnlyRoute } from '@/features/auth/auth-guard'
-import { AiPlanPage } from '@/pages/events/ai-plan-page'
-import { AuthCallbackPage } from '@/pages/auth/auth-callback-page'
-import { BudgetPage } from '@/pages/events/budget-page'
-import { DashboardPage } from '@/pages/dashboard-page'
-import { EventCreatePage, EventEditPage } from '@/pages/events/event-form-page'
-import { EventOverviewPage } from '@/pages/events/event-overview-page'
-import { EventsListPage } from '@/pages/events/events-list-page'
-import { ExportsPage } from '@/pages/events/exports-page'
-import { ForgotPasswordPage } from '@/pages/auth/forgot-password-page'
 import { LandingPage } from '@/pages/landing-page'
 import { NotFoundPage } from '@/pages/not-found-page'
 import PrivacyPolicyPage from '@/pages/legal/privacy-policy-page'
 import TermsPage from '@/pages/legal/terms-page'
-import { ProposalsPage } from '@/pages/events/proposals-page'
-import { ResetPasswordPage } from '@/pages/auth/reset-password-page'
-import { SettingsPage } from '@/pages/settings-page'
-import { SignInPage } from '@/pages/auth/sign-in-page'
-import { SignUpPage } from '@/pages/auth/sign-up-page'
-import { TimelinePage } from '@/pages/events/timeline-page'
-import { VendorComparePage } from '@/pages/events/vendor-compare-page'
-import { VendorsPage } from '@/pages/events/vendors-page'
+
+const withSuspense = (Component: React.LazyExoticComponent<any>) => (
+  <Suspense fallback={<div className="p-8 text-center">Loading...</div>}>
+    <Component />
+  </Suspense>
+)
+
+const AiPlanPage = lazy(() => import('@/pages/events/ai-plan-page').then(m => ({ default: m.AiPlanPage })))
+const AuthCallbackPage = lazy(() => import('@/pages/auth/auth-callback-page').then(m => ({ default: m.AuthCallbackPage })))
+const BudgetPage = lazy(() => import('@/pages/events/budget-page').then(m => ({ default: m.BudgetPage })))
+const DashboardPage = lazy(() => import('@/pages/dashboard-page').then(m => ({ default: m.DashboardPage })))
+const EventCreatePage = lazy(() => import('@/pages/events/event-form-page').then(m => ({ default: m.EventCreatePage })))
+const EventEditPage = lazy(() => import('@/pages/events/event-form-page').then(m => ({ default: m.EventEditPage })))
+const EventOverviewPage = lazy(() => import('@/pages/events/event-overview-page').then(m => ({ default: m.EventOverviewPage })))
+const EventsListPage = lazy(() => import('@/pages/events/events-list-page').then(m => ({ default: m.EventsListPage })))
+const ExportsPage = lazy(() => import('@/pages/events/exports-page').then(m => ({ default: m.ExportsPage })))
+const ForgotPasswordPage = lazy(() => import('@/pages/auth/forgot-password-page').then(m => ({ default: m.ForgotPasswordPage })))
+const ProposalsPage = lazy(() => import('@/pages/events/proposals-page').then(m => ({ default: m.ProposalsPage })))
+const ResetPasswordPage = lazy(() => import('@/pages/auth/reset-password-page').then(m => ({ default: m.ResetPasswordPage })))
+const SettingsPage = lazy(() => import('@/pages/settings-page').then(m => ({ default: m.SettingsPage })))
+const SignInPage = lazy(() => import('@/pages/auth/sign-in-page').then(m => ({ default: m.SignInPage })))
+const SignUpPage = lazy(() => import('@/pages/auth/sign-up-page').then(m => ({ default: m.SignUpPage })))
+const TimelinePage = lazy(() => import('@/pages/events/timeline-page').then(m => ({ default: m.TimelinePage })))
+const VendorComparePage = lazy(() => import('@/pages/events/vendor-compare-page').then(m => ({ default: m.VendorComparePage })))
+const VendorsPage = lazy(() => import('@/pages/events/vendors-page').then(m => ({ default: m.VendorsPage })))
 
 export const routes: RouteObject[] = [
   {
@@ -32,8 +41,8 @@ export const routes: RouteObject[] = [
     element: <PublicLayout />,
     children: [
       { index: true, element: <LandingPage /> },
-      { path: 'privacy', element: <PrivacyPolicyPage /> },
-      { path: 'terms', element: <TermsPage /> },
+      { path: 'privacy', element: withSuspense(lazy(() => Promise.resolve({ default: PrivacyPolicyPage }))) },
+      { path: 'terms', element: withSuspense(lazy(() => Promise.resolve({ default: TermsPage }))) },
       { path: '*', element: <NotFoundPage /> },
     ],
   },
@@ -41,7 +50,7 @@ export const routes: RouteObject[] = [
     path: '/sign-in',
     element: (
       <PublicOnlyRoute>
-        <SignInPage />
+        {withSuspense(SignInPage)}
       </PublicOnlyRoute>
     ),
   },
@@ -49,7 +58,7 @@ export const routes: RouteObject[] = [
     path: '/sign-up',
     element: (
       <PublicOnlyRoute>
-        <SignUpPage />
+        {withSuspense(SignUpPage)}
       </PublicOnlyRoute>
     ),
   },
@@ -57,12 +66,12 @@ export const routes: RouteObject[] = [
     path: '/forgot-password',
     element: (
       <PublicOnlyRoute>
-        <ForgotPasswordPage />
+        {withSuspense(ForgotPasswordPage)}
       </PublicOnlyRoute>
     ),
   },
-  { path: '/reset-password', element: <ResetPasswordPage /> },
-  { path: '/auth/callback', element: <AuthCallbackPage /> },
+  { path: '/reset-password', element: withSuspense(ResetPasswordPage) },
+  { path: '/auth/callback', element: withSuspense(AuthCallbackPage) },
   {
     path: '/app',
     element: (
