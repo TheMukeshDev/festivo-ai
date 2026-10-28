@@ -173,7 +173,7 @@ function ProductPreview() {
               <p className="text-[0.65rem] font-semibold uppercase tracking-[0.1em] text-muted">
                 Planning progress
               </p>
-              <div className="mt-3 flex items-end gap-1.5" aria-hidden="true">
+                <div className="mt-3 flex items-end gap-1.5" aria-label="Planning progress chart">
                 {[35, 55, 48, 72, 66, 84, 76, 92].map((height, index) => (
                   <div
                     key={index}
@@ -202,7 +202,7 @@ export function LandingPage() {
   const primaryLabel = auth.session ? 'Open your workspace' : 'Start planning'
 
   return (
-    <>
+    <main id="main-content">
       <section className="relative overflow-hidden">
         <div
           className="pointer-events-none absolute inset-x-0 top-0 h-[32rem] bg-[radial-gradient(ellipse_at_top,rgba(90,73,214,0.1),transparent_65%)]"
@@ -397,6 +397,6 @@ export function LandingPage() {
           </div>
         </div>
       </section>
-    </>
+    </main>
   )
 }

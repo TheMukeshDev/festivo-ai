@@ -15,6 +15,8 @@ import { ExportsPage } from '@/pages/events/exports-page'
 import { ForgotPasswordPage } from '@/pages/auth/forgot-password-page'
 import { LandingPage } from '@/pages/landing-page'
 import { NotFoundPage } from '@/pages/not-found-page'
+import PrivacyPolicyPage from '@/pages/legal/privacy-policy-page'
+import TermsPage from '@/pages/legal/terms-page'
 import { ProposalsPage } from '@/pages/events/proposals-page'
 import { ResetPasswordPage } from '@/pages/auth/reset-password-page'
 import { SettingsPage } from '@/pages/settings-page'
@@ -30,6 +32,8 @@ export const routes: RouteObject[] = [
     element: <PublicLayout />,
     children: [
       { index: true, element: <LandingPage /> },
+      { path: 'privacy', element: <PrivacyPolicyPage /> },
+      { path: 'terms', element: <TermsPage /> },
       { path: '*', element: <NotFoundPage /> },
     ],
   },

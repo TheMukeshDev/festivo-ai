@@ -1,13 +1,12 @@
 import {
-  browserLocalPersistence,
   confirmPasswordReset,
   createUserWithEmailAndPassword,
   getRedirectResult,
   GoogleAuthProvider,
   onIdTokenChanged,
   sendPasswordResetEmail,
-  setPersistence,
   signInWithEmailAndPassword,
+  signInWithPopup,
   signInWithRedirect,
   signOut as firebaseSignOut,
   updatePassword as firebaseUpdatePassword,
@@ -99,9 +98,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
       releaseGate()
     }, 8000)
     const client = firebaseAuth
-    void setPersistence(client, browserLocalPersistence).catch(() => {
-      if (mounted) toast.error('Persistent sign-in could not be enabled.')
-    })
 
     const unsubscribe = onIdTokenChanged(client, (user) => {
       if (!mounted) return
@@ -111,7 +107,17 @@ export function AuthProvider({ children }: AuthProviderProps) {
       releaseGate()
     })
 
-    void getRedirectResult(client)
+    // The cross-site redirect event can be lost under Chrome's storage
+    // partitioning; never let it hang silently — resolve after a bounded wait
+    // and tell the user instead of bouncing them back to the form.
+    const redirectWaitMs = 12_000
+    const redirectTimeout = new Promise<never>((_, reject) => {
+      window.setTimeout(
+        () => reject(new Error('Google sign-in did not finish. Please try again.')),
+        redirectWaitMs,
+      )
+    })
+    void Promise.race([getRedirectResult(client), redirectTimeout])
       .then((result) => {
         if (!mounted) return
         if (result?.user) {
@@ -155,7 +161,22 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const signInWithGoogle = useCallback(async () => {
     if (!firebaseAuth) throw new Error(firebaseConfigurationError ?? 'Authentication is unavailable.')
-    await signInWithRedirect(firebaseAuth, new GoogleAuthProvider())
+    const provider = new GoogleAuthProvider()
+    try {
+      // Popup works reliably on desktop: the result comes back through the
+      // opener window instead of the cross-site redirect iframe handoff, which
+      // Chrome's storage partitioning can silently drop (app on vercel.app,
+      // authDomain on firebaseapp.com).
+      await signInWithPopup(firebaseAuth, provider)
+    } catch (error) {
+      const code = (error as FirebaseError)?.code
+      if (code === 'auth/popup-blocked' || code === 'auth/cancelled-popup-request') {
+        // Browser blocked the popup — fall back to the full-page redirect.
+        await signInWithRedirect(firebaseAuth, provider)
+      } else {
+        throw error
+      }
+    }
     setSessionExpired(false)
   }, [])
 

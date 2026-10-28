@@ -40,7 +40,7 @@ export function ErrorState({
       role="alert"
     >
       <div className="flex items-start gap-3">
-        <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full bg-danger/10 text-danger">
+        <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full bg-danger/10 text-danger-strong">
           <AlertTriangle className="size-4" aria-hidden="true" />
         </span>
         <div className="min-w-0 flex-1">

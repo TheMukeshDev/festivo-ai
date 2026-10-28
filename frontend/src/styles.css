@@ -11,9 +11,9 @@
   --color-surface-raised: #ffffff;
   --color-ink: #251f2d;
   --color-ink-soft: #514a5b;
-  --color-muted: #736b7d;
-  --color-line: #e5e0d7;
-  --color-line-strong: #d4cdc1;
+  --color-muted: #5a5463;
+  --color-line: #d1ccc4;
+  --color-line-strong: #b8b0a3;
   --color-primary: #5a49d6;
   --color-primary-strong: #4636b8;
   --color-primary-soft: #eeeafc;
@@ -67,6 +67,22 @@
 @layer base {
   html {
     scroll-behavior: smooth;
+  }
+
+  .skip-link {
+    position: absolute;
+    top: -40px;
+    left: 0;
+    background: var(--color-primary);
+    color: white;
+    padding: 8px 16px;
+    text-decoration: none;
+    z-index: 100;
+    transition: top 0.2s;
+  }
+
+  .skip-link:focus {
+    top: 0;
   }
 
   body {

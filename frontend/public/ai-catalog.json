@@ -1,0 +1,27 @@
+{
+  "$schema": "https://raw.githubusercontent.com/agentic-catalog/schema/main/ai-catalog.schema.json",
+  "name": "Festivo AI",
+  "description": "AI-powered event planning assistant for weddings, birthdays, college celebrations, and community events",
+  "url": "https://festivoai01.vercel.app",
+  "category": "productivity",
+  "tags": ["ai", "event-planning", "budget", "timeline", "vendors"],
+  "version": "1.0.0",
+  "capabilities": [
+    {
+      "name": "event_planning",
+      "description": "Create and manage events with budgets, timelines, and vendors"
+    },
+    {
+      "name": "ai_suggestions",
+      "description": "Get AI-powered suggestions for themes, budgets, and next steps"
+    },
+    {
+      "name": "budget_management",
+      "description": "Track expenses with decimal-safe calculations"
+    }
+  ],
+  "contact": {
+    "email": "support@festivoai.com"
+  },
+  "license": "MIT"
+}
