@@ -173,7 +173,7 @@ function ProductPreview() {
               <p className="text-[0.65rem] font-semibold uppercase tracking-[0.1em] text-muted">
                 Planning progress
               </p>
-                <div className="mt-3 flex items-end gap-1.5" aria-label="Planning progress chart">
+                <div className="mt-3 flex items-end gap-1.5" role="img" aria-label="Planning progress chart showing increasing task completion">
                 {[35, 55, 48, 72, 66, 84, 76, 92].map((height, index) => (
                   <div
                     key={index}
@@ -272,7 +272,7 @@ export function LandingPage() {
                 key={step.title}
                 className="relative rounded-lg border border-line bg-canvas/60 p-6"
               >
-                <span className="absolute right-5 top-5 font-display text-3xl text-line-strong">
+                <span className="absolute right-5 top-5 font-display text-3xl text-muted">
                   0{index + 1}
                 </span>
                 <span className="flex size-10 items-center justify-center rounded-full bg-primary-soft text-primary">
