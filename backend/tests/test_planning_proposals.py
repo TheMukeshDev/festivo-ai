@@ -240,10 +240,7 @@ def test_generation_persists_pending_owner_scoped_proposal_without_applying(
     assert proposal["pending_item_count"] == 3
     assert proposal["applied_item_count"] == 0
     assert _task_total(planning_client, event["event_id"]) == 0
-    assert (
-        planning_client.get(f"/api/v1/events/{event['event_id']}/budget").json()
-        == budget
-    )
+    assert planning_client.get(f"/api/v1/events/{event['event_id']}/budget").json() == budget
 
     listed = planning_client.get(f"/api/v1/events/{event['event_id']}/proposals")
     assert listed.status_code == 200
@@ -271,11 +268,10 @@ def test_explicit_approval_applies_once_and_never_mutates_budget(
     assert len(body["applied"]) == 3
     assert body["skipped"] == []
     assert _task_total(planning_client, event["event_id"]) == 1
-    assert (
-        planning_client.get(f"/api/v1/events/{event['event_id']}/budget").json()
-        == budget
+    assert planning_client.get(f"/api/v1/events/{event['event_id']}/budget").json() == budget
+    assert any(
+        "no budget or expense records were changed" in item["message"] for item in body["applied"]
     )
-    assert any("no budget or expense records were changed" in item["message"] for item in body["applied"])
 
     repeated = planning_client.post(
         f"/api/v1/events/{event['event_id']}/proposals/{proposal['proposal_id']}/approve",
@@ -413,7 +409,7 @@ def test_csv_formula_cells_are_escaped(
     event = _create_event(planning_client, event_payload)
     task = planning_client.post(
         f"/api/v1/events/{event['event_id']}/tasks",
-        json={"title": "=HYPERLINK(\"https://example.test\")", "priority": "low"},
+        json={"title": '=HYPERLINK("https://example.test")', "priority": "low"},
     )
     assert task.status_code == 201, task.text
 
@@ -475,9 +471,7 @@ def test_proposal_errors_are_safe_and_do_not_leak_provider_details(
 ) -> None:
     event = _create_event(planning_client, event_payload)
 
-    response = planning_client.get(
-        f"/api/v1/events/{event['event_id']}/proposals/not-a-uuid"
-    )
+    response = planning_client.get(f"/api/v1/events/{event['event_id']}/proposals/not-a-uuid")
 
     assert response.status_code == 404
     assert response.json()["error"]["message"] == "The requested resource was not found."
@@ -506,5 +500,3 @@ def test_expired_proposals_cannot_be_approved(
     )
     assert fetched.status.value == "expired"
     assert _task_total(planning_client, event["event_id"]) == 0
-
-

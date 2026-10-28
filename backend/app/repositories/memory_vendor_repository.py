@@ -67,7 +67,11 @@ class InMemoryVendorRepository(VendorRepository):
     def update(self, owner_id: UUID, vendor: Vendor) -> Vendor | None:
         with self._lock:
             existing = self._vendors.get(vendor.vendor_id)
-            if existing is None or existing.owner_id != owner_id or existing.event_id != vendor.event_id:
+            if (
+                existing is None
+                or existing.owner_id != owner_id
+                or existing.event_id != vendor.event_id
+            ):
                 return None
             self._vendors[vendor.vendor_id] = copy.deepcopy(vendor)
             return copy.deepcopy(vendor)

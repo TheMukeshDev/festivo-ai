@@ -89,8 +89,7 @@ class ProposalResponse(BaseModel):
     @classmethod
     def from_proposal(cls, proposal: Proposal) -> Self:
         items = [
-            ProposalItemResponse.model_validate(item)
-            for item in proposal.payload.get("items", [])
+            ProposalItemResponse.model_validate(item) for item in proposal.payload.get("items", [])
         ]
         pending = sum(1 for item in items if item.status == ProposalItemStatus.PENDING)
         applied = sum(1 for item in items if item.status == ProposalItemStatus.APPLIED)
@@ -158,9 +157,7 @@ class ProposalRejectRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     item_ids: list[UUID] | None = Field(default=None, max_length=100)
-    reason: Annotated[str, StringConstraints(strip_whitespace=True, max_length=500)] | None = (
-        None
-    )
+    reason: Annotated[str, StringConstraints(strip_whitespace=True, max_length=500)] | None = None
 
     @field_validator("item_ids")
     @classmethod

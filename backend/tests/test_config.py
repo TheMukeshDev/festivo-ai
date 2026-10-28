@@ -112,9 +112,7 @@ def test_invalid_retry_count_is_rejected(
 
 
 @pytest.mark.parametrize("ttl", [0, -1, 721])
-def test_invalid_proposal_ttl_is_rejected(
-    ttl: int, make_settings: Callable[..., Settings]
-) -> None:
+def test_invalid_proposal_ttl_is_rejected(ttl: int, make_settings: Callable[..., Settings]) -> None:
     with pytest.raises(ValidationError):
         make_settings(proposal_ttl_hours=ttl)
 

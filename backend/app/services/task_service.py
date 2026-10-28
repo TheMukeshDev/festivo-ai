@@ -11,6 +11,7 @@ from app.core.exceptions import (
     ResourceNotFoundError,
     ValidationIssue,
 )
+from app.core.ids import parse_uuid
 from app.models.event import Event
 from app.models.task import Task, TaskPriority, TaskStatus
 from app.models.vendor import Vendor, VendorStatus
@@ -131,7 +132,7 @@ class TaskService:
 
     def get(self, owner_id: UUID, raw_event_id: str, raw_task_id: str) -> Task:
         event = self._require_event(owner_id, raw_event_id)
-        task_id = self._parse_identifier(raw_task_id, _TASK_NOT_FOUND)
+        task_id = parse_uuid(raw_task_id, _TASK_NOT_FOUND)
         task = self._planning_repository.get_task(task_id, event.event_id, owner_id)
         if task is None:
             raise ResourceNotFoundError(_TASK_NOT_FOUND)
@@ -167,7 +168,7 @@ class TaskService:
         payload: TaskUpdate,
     ) -> Task:
         event = self._require_event(owner_id, raw_event_id)
-        task_id = self._parse_identifier(raw_task_id, _TASK_NOT_FOUND)
+        task_id = parse_uuid(raw_task_id, _TASK_NOT_FOUND)
         task = self._planning_repository.get_task(task_id, event.event_id, owner_id)
         if task is None:
             raise ResourceNotFoundError(_TASK_NOT_FOUND)
@@ -186,9 +187,7 @@ class TaskService:
 
         now = self._now()
         if "status" in changes and changes["status"] != task.status:
-            changes["completed_at"] = (
-                now if changes["status"] == TaskStatus.COMPLETED else None
-            )
+            changes["completed_at"] = now if changes["status"] == TaskStatus.COMPLETED else None
 
         candidate = replace(task, **changes)
         if candidate == task:
@@ -204,7 +203,7 @@ class TaskService:
 
     def delete(self, owner_id: UUID, raw_event_id: str, raw_task_id: str) -> None:
         event = self._require_event(owner_id, raw_event_id)
-        task_id = self._parse_identifier(raw_task_id, _TASK_NOT_FOUND)
+        task_id = parse_uuid(raw_task_id, _TASK_NOT_FOUND)
         if not self._planning_repository.delete_task(task_id, event.event_id, owner_id):
             raise ResourceNotFoundError(_TASK_NOT_FOUND)
 
@@ -215,7 +214,11 @@ class TaskService:
         vendor: Vendor,
     ) -> list[Task]:
         """Create missing vendor follow-up tasks without touching existing tasks."""
-        if vendor.status in {VendorStatus.DISCOVERED, VendorStatus.REJECTED, VendorStatus.CANCELLED}:
+        if vendor.status in {
+            VendorStatus.DISCOVERED,
+            VendorStatus.REJECTED,
+            VendorStatus.CANCELLED,
+        }:
             return []
 
         now = self._now()
@@ -285,7 +288,7 @@ class TaskService:
         return max(task.sort_order for task in tasks) + 10
 
     def _require_event(self, owner_id: UUID, raw_event_id: str) -> Event:
-        event_id = self._parse_identifier(raw_event_id, _EVENT_NOT_FOUND)
+        event_id = parse_uuid(raw_event_id, _EVENT_NOT_FOUND)
         event = self._event_repository.get(event_id, owner_id)
         if event is None:
             raise ResourceNotFoundError(_EVENT_NOT_FOUND)
@@ -293,18 +296,6 @@ class TaskService:
 
     def _now(self) -> datetime:
         return coerce_utc(self._clock())
-
-    @staticmethod
-    def _parse_identifier(raw_identifier: str, not_found_message: str) -> UUID:
-        if len(raw_identifier) != 36:
-            raise ResourceNotFoundError(not_found_message)
-        try:
-            identifier = UUID(raw_identifier)
-        except ValueError:
-            raise ResourceNotFoundError(not_found_message) from None
-        if str(identifier) != raw_identifier.lower():
-            raise ResourceNotFoundError(not_found_message)
-        return identifier
 
     def create_generated_task(
         self,
@@ -358,4 +349,3 @@ class TaskService:
             if existing is None:
                 raise
             return existing
-

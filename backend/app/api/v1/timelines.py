@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, Query, Request, Response, status
 
 from app.api.dependencies import get_current_user
 from app.core.auth import AuthenticatedUser
+from app.core.ids import parse_uuid
 from app.models.task import TaskPriority, TaskStatus
 from app.schemas.errors import ErrorResponse
 from app.schemas.task import TaskCreate, TaskListResponse, TaskResponse, TaskUpdate
@@ -59,9 +60,7 @@ def get_timeline(
     request: Request,
     user: Annotated[AuthenticatedUser, Depends(get_current_user)],
 ) -> TimelineResponse:
-    return TimelineResponse.from_timeline(
-        _timeline_service(request).get(user.user_id, event_id)
-    )
+    return TimelineResponse.from_timeline(_timeline_service(request).get(user.user_id, event_id))
 
 
 @router.post(
@@ -112,21 +111,9 @@ def list_tasks(
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
     offset: Annotated[int, Query(ge=0, le=1_000_000)] = 0,
 ) -> TaskListResponse:
-    parsed_timeline_id = None
-    if timeline_id is not None:
-        from uuid import UUID
-
-        from app.core.exceptions import ResourceNotFoundError
-
-        if len(timeline_id) != 36:
-            raise ResourceNotFoundError("Task not found.")
-        try:
-            parsed = UUID(timeline_id)
-            if str(parsed) != timeline_id.lower():
-                raise ValueError
-            parsed_timeline_id = parsed
-        except ValueError as exc:
-            raise ResourceNotFoundError("Task not found.") from exc
+    parsed_timeline_id = (
+        parse_uuid(timeline_id, "Task not found.") if timeline_id is not None else None
+    )
     tasks, total = _task_service(request).list_tasks(
         user.user_id,
         event_id,

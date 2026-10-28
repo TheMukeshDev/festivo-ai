@@ -167,9 +167,7 @@ def update_expense(
     user: Annotated[AuthenticatedUser, Depends(get_current_user)],
 ) -> BudgetResponse:
     """Update an owned expense atomically."""
-    return _response(
-        _service(request).update_expense(user.user_id, event_id, expense_id, payload)
-    )
+    return _response(_service(request).update_expense(user.user_id, event_id, expense_id, payload))
 
 
 @router.delete(

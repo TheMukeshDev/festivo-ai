@@ -104,9 +104,7 @@ def update_event(
     user: Annotated[AuthenticatedUser, Depends(get_current_user)],
 ) -> EventResponse:
     """Apply supplied editable fields while preserving server-managed fields."""
-    return EventResponse.from_event(
-        _service(request).update(user.user_id, event_id, payload)
-    )
+    return EventResponse.from_event(_service(request).update(user.user_id, event_id, payload))
 
 
 @router.delete(

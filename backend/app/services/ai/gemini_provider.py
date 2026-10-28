@@ -55,7 +55,6 @@ class GeminiProvider(AIProvider):
         system: str,
         user: str,
         schema: dict[str, Any] | None = None,
-        **kwargs: Any,
     ) -> dict[str, Any]:
         model = self._settings.llm_model
         max_retries = int(self._settings.llm_max_retries)

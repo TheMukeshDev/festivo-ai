@@ -12,6 +12,7 @@ from app.core.exceptions import (
     ResourceNotFoundError,
     ValidationIssue,
 )
+from app.core.ids import parse_uuid
 from app.models.budget import Budget, Expense, ReserveType
 from app.models.event import Event
 from app.repositories.budget_repository import BudgetAggregate, BudgetRepository
@@ -156,7 +157,7 @@ class BudgetService:
         payload: ExpenseUpdate,
     ) -> BudgetView:
         event = self._require_event(owner_id, raw_event_id)
-        expense_id = self._parse_identifier(raw_expense_id, _BUDGET_NOT_FOUND)
+        expense_id = parse_uuid(raw_expense_id, _BUDGET_NOT_FOUND)
         aggregate = self._require_budget(event.event_id)
         current = aggregate.budget
         self._ensure_version(current, payload.expected_version)
@@ -203,7 +204,7 @@ class BudgetService:
         expected_version: int,
     ) -> BudgetView:
         event = self._require_event(owner_id, raw_event_id)
-        expense_id = self._parse_identifier(raw_expense_id, _BUDGET_NOT_FOUND)
+        expense_id = parse_uuid(raw_expense_id, _BUDGET_NOT_FOUND)
         aggregate = self._require_budget(event.event_id)
         now = self._now()
         updated = self._budget_repository.delete_expense(
@@ -215,7 +216,7 @@ class BudgetService:
         return self._view(updated, event.guest_count)
 
     def _require_event(self, owner_id: UUID, raw_event_id: str) -> Event:
-        event_id = self._parse_identifier(raw_event_id, _EVENT_NOT_FOUND)
+        event_id = parse_uuid(raw_event_id, _EVENT_NOT_FOUND)
         event = self._event_repository.get(event_id, owner_id)
         if event is None:
             raise ResourceNotFoundError(_EVENT_NOT_FOUND)
@@ -276,15 +277,3 @@ class BudgetService:
 
     def _now(self) -> datetime:
         return coerce_utc(self._clock())
-
-    @staticmethod
-    def _parse_identifier(raw_identifier: str, not_found_message: str) -> UUID:
-        if len(raw_identifier) != 36:
-            raise ResourceNotFoundError(not_found_message)
-        try:
-            identifier = UUID(raw_identifier)
-        except ValueError:
-            raise ResourceNotFoundError(not_found_message) from None
-        if str(identifier) != raw_identifier.lower():
-            raise ResourceNotFoundError(not_found_message)
-        return identifier

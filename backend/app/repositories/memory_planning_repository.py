@@ -180,9 +180,7 @@ class InMemoryPlanningRepository(PlanningRepository):
                 and (timeline_id is None or task.timeline_id == timeline_id)
             ]
             matches.sort(key=lambda task: (task.sort_order, task.created_at, task.task_id))
-            return [copy.deepcopy(task) for task in matches[offset : offset + limit]], len(
-                matches
-            )
+            return [copy.deepcopy(task) for task in matches[offset : offset + limit]], len(matches)
 
     def list_timeline_tasks(
         self,

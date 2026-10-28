@@ -194,7 +194,6 @@ def test_production_errors_do_not_expose_stack_traces_or_paths(
     assert "RuntimeError" not in response.text
 
 
-
 def test_production_debug_mode_is_disabled(make_settings: Callable[..., Settings]) -> None:
     with pytest.raises(ValidationError, match="DEBUG must be false"):
         make_settings(

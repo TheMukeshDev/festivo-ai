@@ -211,7 +211,10 @@ class ReportService:
             ("Available for planning", _money(calculation.available_for_planning, budget.currency)),
             ("Planned spending", _money(calculation.planned_spending, budget.currency)),
             ("Remaining total", _money(calculation.remaining_total, budget.currency)),
-            ("Remaining after reserve", _money(calculation.remaining_after_reserve, budget.currency)),
+            (
+                "Remaining after reserve",
+                _money(calculation.remaining_after_reserve, budget.currency),
+            ),
             ("Budget status", calculation.status.value.replace("_", " ").title()),
             ("Budget version", str(budget.version)),
         ]
@@ -267,8 +270,7 @@ class ReportService:
         completed = sum(1 for task in report.tasks if task.status == TaskStatus.COMPLETED)
         elements: list[Any] = [
             _paragraph(
-                f"{len(report.tasks)} task(s) in the report window; "
-                f"{completed} completed.",
+                f"{len(report.tasks)} task(s) in the report window; {completed} completed.",
                 styles["body"],
             ),
             Spacer(1, 0.15 * cm),
@@ -327,7 +329,10 @@ class ReportService:
                     _cell(vendor.name, styles),
                     _cell(vendor.category.value.replace("_", " ").title(), styles),
                     _cell(label, styles),
-                    _cell(_money(amount, vendor.currency) if amount is not None else "Not recorded", styles),
+                    _cell(
+                        _money(amount, vendor.currency) if amount is not None else "Not recorded",
+                        styles,
+                    ),
                 ]
             )
         elements.append(_table(table_data, [5.6 * cm, 4.0 * cm, 3.4 * cm, 3.9 * cm]))
@@ -460,9 +465,7 @@ def _details_table(
     rows: list[tuple[str, object]],
     styles: dict[str, ParagraphStyle],
 ) -> Table:
-    table_data = [
-        [_cell(label, styles), _cell(value, styles)] for label, value in rows
-    ]
+    table_data = [[_cell(label, styles), _cell(value, styles)] for label, value in rows]
     table = Table(table_data, colWidths=[4.0 * cm, 13.0 * cm])
     table.setStyle(
         TableStyle(
@@ -593,8 +596,7 @@ def _csv_rows(report: EventReportData) -> list[list[object]]:
                 vendor.availability or "",
                 amount if amount is not None else "",
                 vendor.currency,
-                "Recorded vendor data; booking is not verified by Festivo. "
-                + (vendor.notes or ""),
+                "Recorded vendor data; booking is not verified by Festivo. " + (vendor.notes or ""),
             ]
         )
     for recommendation in report.recommendations:
@@ -608,8 +610,7 @@ def _csv_rows(report: EventReportData) -> list[list[object]]:
                 "",
                 recommendation.get("amount") or "",
                 recommendation.get("currency") or event.currency,
-                (recommendation.get("details") or "")
-                + " (advisory only; not a confirmed expense)",
+                (recommendation.get("details") or "") + " (advisory only; not a confirmed expense)",
             ]
         )
     return [[_csv_safe(cell) for cell in row] for row in rows]
@@ -627,4 +628,3 @@ def _vendor_status_label(status: VendorStatus) -> str:
     if status == VendorStatus.BOOKED:
         return "Marked booked by user (not verified)"
     return status.value.replace("_", " ").title()
-

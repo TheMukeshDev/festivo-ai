@@ -38,9 +38,7 @@ class PlanningOrchestrationService:
         if request.additional_notes:
             preferences["additional_notes"] = request.additional_notes
         if request.conversation:
-            preferences["conversation"] = [
-                message.model_dump() for message in request.conversation
-            ]
+            preferences["conversation"] = [message.model_dump() for message in request.conversation]
         plan = self._ai_planning_service.generate_plan(
             owner_id,
             event_id,

@@ -1,11 +1,35 @@
 import { render, screen } from '@testing-library/react'
 import { createMemoryRouter, RouterProvider } from 'react-router-dom'
-import { describe, expect, it } from 'vitest'
+import type { ReactNode } from 'react'
+import { describe, expect, it, vi } from 'vitest'
 
 import { AppProviders } from '@/app/providers'
 import { createAppQueryClient } from '@/app/query-client'
 import { routes } from '@/app/router'
-import { isFirebaseConfigured } from '@/lib/env'
+
+const authValue = vi.hoisted(() => ({
+    configured: false,
+    configurationMessage: 'Authentication is not configured.',
+    loading: false,
+    session: null,
+    user: null,
+    sessionExpired: false,
+    signIn: async () => undefined,
+    signInWithGoogle: async () => undefined,
+    signUp: async () => ({ needsEmailConfirmation: false }),
+    signOut: async () => undefined,
+    requestPasswordReset: async () => undefined,
+    updatePassword: async () => undefined,
+    clearSessionExpired: () => undefined,
+}))
+
+vi.mock('@/features/auth/auth-provider', () => ({
+  AuthProvider: ({ children }: { children: ReactNode }) => children,
+}))
+
+vi.mock('@/features/auth/use-auth', () => ({
+  useAuth: () => authValue,
+}))
 
 function renderAt(path: string) {
   const router = createMemoryRouter(routes, { initialEntries: [path] })
@@ -34,8 +58,6 @@ describe('application routes', () => {
   })
 
   it('protects the workspace when authentication is not configured', async () => {
-    if (isFirebaseConfigured) return
-
     renderAt('/app')
     expect(await screen.findByText('Authentication is not configured')).toBeInTheDocument()
   })

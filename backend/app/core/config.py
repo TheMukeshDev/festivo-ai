@@ -259,10 +259,7 @@ class Settings(BaseSettings):
         if self.storage_backend == "postgres" and self.supabase_db_url is None:
             raise ValueError("SUPABASE_DB_URL is required when STORAGE_BACKEND is 'postgres'.")
         if self.app_env == "production" and not self.firebase_project_id:
-            raise ValueError(
-                "FIREBASE_PROJECT_ID is required "
-                "in production."
-            )
+            raise ValueError("FIREBASE_PROJECT_ID is required in production.")
 
         if self.llm_enabled:
             if self.gemini_api_key is None:

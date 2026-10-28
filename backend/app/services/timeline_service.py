@@ -6,6 +6,7 @@ from uuid import UUID, uuid4
 
 from app.core.clock import Clock, coerce_utc, utc_now
 from app.core.exceptions import DomainValidationError, ResourceNotFoundError, ValidationIssue
+from app.core.ids import parse_uuid
 from app.models.event import Event
 from app.models.task import Task, TaskPriority, TaskStatus
 from app.models.timeline import Timeline
@@ -175,7 +176,7 @@ class TimelineService:
         return tasks
 
     def _require_event(self, owner_id: UUID, raw_event_id: str) -> Event:
-        event_id = self._parse_identifier(raw_event_id, _EVENT_NOT_FOUND)
+        event_id = parse_uuid(raw_event_id, _EVENT_NOT_FOUND)
         event = self._event_repository.get(event_id, owner_id)
         if event is None:
             raise ResourceNotFoundError(_EVENT_NOT_FOUND)
@@ -183,15 +184,3 @@ class TimelineService:
 
     def _now(self):
         return coerce_utc(self._clock())
-
-    @staticmethod
-    def _parse_identifier(raw_identifier: str, not_found_message: str) -> UUID:
-        if len(raw_identifier) != 36:
-            raise ResourceNotFoundError(not_found_message)
-        try:
-            identifier = UUID(raw_identifier)
-        except ValueError:
-            raise ResourceNotFoundError(not_found_message) from None
-        if str(identifier) != raw_identifier.lower():
-            raise ResourceNotFoundError(not_found_message)
-        return identifier

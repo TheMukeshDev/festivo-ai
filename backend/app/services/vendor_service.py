@@ -7,6 +7,7 @@ from uuid import UUID, uuid4
 
 from app.core.clock import Clock, coerce_utc, utc_now
 from app.core.exceptions import DomainValidationError, ResourceNotFoundError, ValidationIssue
+from app.core.ids import parse_uuid
 from app.models.event import Event
 from app.models.vendor import ALLOWED_VENDOR_TRANSITIONS, Vendor, VendorCategory, VendorStatus
 from app.repositories.event_repository import EventRepository
@@ -47,8 +48,18 @@ class VendorService:
     def create(self, owner_id: UUID, raw_event_id: str, payload: VendorCreate) -> Vendor:
         event = self._require_event(owner_id, raw_event_id)
         now = self._now()
-        if payload.price_min is not None and payload.price_max is not None and payload.price_min > payload.price_max:
-            raise DomainValidationError([ValidationIssue(field="body.price_min", message="price_min cannot exceed price_max.")])
+        if (
+            payload.price_min is not None
+            and payload.price_max is not None
+            and payload.price_min > payload.price_max
+        ):
+            raise DomainValidationError(
+                [
+                    ValidationIssue(
+                        field="body.price_min", message="price_min cannot exceed price_max."
+                    )
+                ]
+            )
         vendor = Vendor(
             vendor_id=uuid4(),
             event_id=event.event_id,
@@ -81,7 +92,7 @@ class VendorService:
 
     def get(self, owner_id: UUID, raw_event_id: str, raw_vendor_id: str) -> Vendor:
         event = self._require_event(owner_id, raw_event_id)
-        vendor_id = self._parse_identifier(raw_vendor_id, _VENDOR_NOT_FOUND)
+        vendor_id = parse_uuid(raw_vendor_id, _VENDOR_NOT_FOUND)
         vendor = self._vendor_repository.get(vendor_id, event.event_id, owner_id)
         if vendor is None:
             raise ResourceNotFoundError(_VENDOR_NOT_FOUND)
@@ -113,9 +124,11 @@ class VendorService:
             offset=offset,
         )
 
-    def update(self, owner_id: UUID, raw_event_id: str, raw_vendor_id: str, payload: VendorUpdate) -> Vendor:
+    def update(
+        self, owner_id: UUID, raw_event_id: str, raw_vendor_id: str, payload: VendorUpdate
+    ) -> Vendor:
         event = self._require_event(owner_id, raw_event_id)
-        vendor_id = self._parse_identifier(raw_vendor_id, _VENDOR_NOT_FOUND)
+        vendor_id = parse_uuid(raw_vendor_id, _VENDOR_NOT_FOUND)
         vendor = self._vendor_repository.get(vendor_id, event.event_id, owner_id)
         if vendor is None:
             raise ResourceNotFoundError(_VENDOR_NOT_FOUND)
@@ -127,7 +140,9 @@ class VendorService:
         issues = []
         for field in ("vendor_id", "event_id", "owner_id", "created_at", "updated_at"):
             if field in changes:
-                issues.append(ValidationIssue(field=f"body.{field}", message="This field cannot be assigned."))
+                issues.append(
+                    ValidationIssue(field=f"body.{field}", message="This field cannot be assigned.")
+                )
         if issues:
             raise DomainValidationError(issues)
 
@@ -135,7 +150,11 @@ class VendorService:
         new_max = changes.get("price_max")
         effective_min = new_min if new_min is not None else vendor.price_min
         effective_max = new_max if new_max is not None else vendor.price_max
-        if effective_min is not None and effective_max is not None and effective_min > effective_max:
+        if (
+            effective_min is not None
+            and effective_max is not None
+            and effective_min > effective_max
+        ):
             raise DomainValidationError(
                 [
                     ValidationIssue(
@@ -194,12 +213,19 @@ class VendorService:
 
     def delete(self, owner_id: UUID, raw_event_id: str, raw_vendor_id: str) -> None:
         event = self._require_event(owner_id, raw_event_id)
-        vendor_id = self._parse_identifier(raw_vendor_id, _VENDOR_NOT_FOUND)
+        vendor_id = parse_uuid(raw_vendor_id, _VENDOR_NOT_FOUND)
         vendor = self._vendor_repository.get(vendor_id, event.event_id, owner_id)
         if vendor is None:
             raise ResourceNotFoundError(_VENDOR_NOT_FOUND)
         if vendor.status == VendorStatus.BOOKED:
-            raise DomainValidationError([ValidationIssue(field="body.status", message="Booked vendors cannot be deleted under the documented lifecycle policy.")])
+            raise DomainValidationError(
+                [
+                    ValidationIssue(
+                        field="body.status",
+                        message="Booked vendors cannot be deleted under the documented lifecycle policy.",
+                    )
+                ]
+            )
         if not self._vendor_repository.delete(vendor_id, event.event_id, owner_id):
             raise ResourceNotFoundError(_VENDOR_NOT_FOUND)
 
@@ -207,7 +233,7 @@ class VendorService:
         event = self._require_event(owner_id, raw_event_id)
         vendors = []
         for raw_vid in payload.vendor_ids:
-            vid = self._parse_identifier(raw_vid, _VENDOR_NOT_FOUND)
+            vid = parse_uuid(raw_vid, _VENDOR_NOT_FOUND)
             v = self._vendor_repository.get(vid, event.event_id, owner_id)
             if v is None:
                 raise ResourceNotFoundError(_VENDOR_NOT_FOUND)
@@ -221,7 +247,9 @@ class VendorService:
 
         items_out = []
         # deterministic order
-        ordered = sorted(vendors, key=lambda v: (v.category.value, v.name.lower(), str(v.vendor_id)))
+        ordered = sorted(
+            vendors, key=lambda v: (v.category.value, v.name.lower(), str(v.vendor_id))
+        )
         criteria = [
             "Category compatibility",
             "Comparable price (same currency)",
@@ -246,12 +274,16 @@ class VendorService:
             missing = []
             reasons = []
             if len(categories) > 1:
-                reasons.append("Different categories; not ranked together for a single 'best' choice.")
+                reasons.append(
+                    "Different categories; not ranked together for a single 'best' choice."
+                )
             comparable_price = False
             comp_price = None
             if v.quoted_cost is not None or v.estimated_cost is not None or v.price_min is not None:
                 if v.currency != currency:
-                    reasons.append("Currency differs from event currency; price not numerically compared.")
+                    reasons.append(
+                        "Currency differs from event currency; price not numerically compared."
+                    )
                 else:
                     comparable_price = True
                     comp_price = v.quoted_cost or v.estimated_cost or v.price_min
@@ -274,38 +306,52 @@ class VendorService:
                 budget_fit = "unknown_due_to_missing_price_or_currency"
 
             pref_match = []
-            if payload.prefer_service_area and v.service_area and payload.prefer_service_area.lower() in v.service_area.lower():
+            if (
+                payload.prefer_service_area
+                and v.service_area
+                and payload.prefer_service_area.lower() in v.service_area.lower()
+            ):
                 pref_match.append("service_area_match")
-            if payload.prefer_quick_response and v.status in {VendorStatus.CONTACTED, VendorStatus.QUOTED}:
+            if payload.prefer_quick_response and v.status in {
+                VendorStatus.CONTACTED,
+                VendorStatus.QUOTED,
+            }:
                 pref_match.append("active_response_state")
             if v.rating is not None and v.rating >= Decimal("4.0"):
                 pref_match.append("high_recorded_rating")
 
-            items_out.append({
-                "vendor_id": str(v.vendor_id),
-                "name": v.name,
-                "category": v.category,
-                "status": v.status,
-                "currency": v.currency,
-                "price_min": v.price_min,
-                "price_max": v.price_max,
-                "estimated_cost": v.estimated_cost,
-                "quoted_cost": v.quoted_cost,
-                "final_cost": v.final_cost,
-                "rating": v.rating,
-                "service_area": v.service_area,
-                "availability": v.availability,
-                "budget_fit": budget_fit,
-                "preference_match": pref_match,
-                "missing": missing,
-                "comparable_price": comparable_price,
-                "reasons_cannot_compare_fairly": reasons,
-                "notes": v.notes,
-            })
-        return {"items": items_out, "criteria": criteria, "limitations": limitations, "ordering": "category, name, vendor_id (deterministic)"}
+            items_out.append(
+                {
+                    "vendor_id": str(v.vendor_id),
+                    "name": v.name,
+                    "category": v.category,
+                    "status": v.status,
+                    "currency": v.currency,
+                    "price_min": v.price_min,
+                    "price_max": v.price_max,
+                    "estimated_cost": v.estimated_cost,
+                    "quoted_cost": v.quoted_cost,
+                    "final_cost": v.final_cost,
+                    "rating": v.rating,
+                    "service_area": v.service_area,
+                    "availability": v.availability,
+                    "budget_fit": budget_fit,
+                    "preference_match": pref_match,
+                    "missing": missing,
+                    "comparable_price": comparable_price,
+                    "reasons_cannot_compare_fairly": reasons,
+                    "notes": v.notes,
+                }
+            )
+        return {
+            "items": items_out,
+            "criteria": criteria,
+            "limitations": limitations,
+            "ordering": "category, name, vendor_id (deterministic)",
+        }
 
     def _require_event(self, owner_id: UUID, raw_event_id: str) -> Event:
-        event_id = self._parse_identifier(raw_event_id, _EVENT_NOT_FOUND)
+        event_id = parse_uuid(raw_event_id, _EVENT_NOT_FOUND)
         event = self._event_repository.get(event_id, owner_id)
         if event is None:
             raise ResourceNotFoundError(_EVENT_NOT_FOUND)
@@ -313,16 +359,3 @@ class VendorService:
 
     def _now(self):
         return coerce_utc(self._clock())
-
-    @staticmethod
-    def _parse_identifier(raw_identifier: str, not_found_message: str) -> UUID:
-        if len(raw_identifier) != 36:
-            raise ResourceNotFoundError(not_found_message)
-        try:
-            identifier = UUID(raw_identifier)
-        except ValueError:
-            raise ResourceNotFoundError(not_found_message) from None
-        if str(identifier) != raw_identifier.lower():
-            raise ResourceNotFoundError(not_found_message)
-        return identifier
-

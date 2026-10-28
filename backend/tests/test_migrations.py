@@ -48,11 +48,8 @@ def test_migration_prepares_rls_and_owner_scoped_policies() -> None:
     assert "auth.uid()" in sql
 
 
-
 def test_planning_proposals_migration_is_owner_scoped_and_advisory() -> None:
-    sql = (MIGRATIONS_DIR / "202610250001_planning_proposals.sql").read_text(
-        encoding="utf-8"
-    )
+    sql = (MIGRATIONS_DIR / "202610250001_planning_proposals.sql").read_text(encoding="utf-8")
 
     assert "create table if not exists public.planning_proposals" in sql
     assert "proposal_type in ('ai_planning')" in sql

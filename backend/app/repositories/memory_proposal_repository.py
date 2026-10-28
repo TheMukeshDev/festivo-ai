@@ -23,11 +23,7 @@ class InMemoryProposalRepository(ProposalRepository):
     def get(self, proposal_id: UUID, event_id: UUID, owner_id: UUID) -> Proposal | None:
         with self._lock:
             proposal = self._proposals.get(proposal_id)
-            if (
-                proposal is None
-                or proposal.owner_id != owner_id
-                or proposal.event_id != event_id
-            ):
+            if proposal is None or proposal.owner_id != owner_id or proposal.event_id != event_id:
                 return None
             return copy.deepcopy(proposal)
 

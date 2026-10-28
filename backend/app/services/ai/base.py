@@ -1,4 +1,5 @@
 """Abstract base classes for AI providers."""
+
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
@@ -13,7 +14,6 @@ class AIProvider(ABC):
         system: str,
         user: str,
         schema: dict[str, Any] | None = None,
-        **kwargs: Any,
     ) -> dict[str, Any]:
         raise NotImplementedError
 

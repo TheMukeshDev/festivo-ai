@@ -136,7 +136,7 @@ def refine_ai_plan(
 def ai_plan_status(
     event_id: str,
     request: Request,
-    user: Annotated[AuthenticatedUser, Depends(get_current_user)],
+    _user: Annotated[AuthenticatedUser, Depends(get_current_user)],
 ) -> dict[str, Any]:
     settings: Settings = request.app.state.settings
     return {

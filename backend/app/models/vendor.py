@@ -37,11 +37,36 @@ class VendorStatus(StrEnum):
 
 
 ALLOWED_VENDOR_TRANSITIONS: dict[VendorStatus, set[VendorStatus]] = {
-    VendorStatus.DISCOVERED: {VendorStatus.SHORTLISTED, VendorStatus.CONTACTED, VendorStatus.REJECTED, VendorStatus.CANCELLED},
-    VendorStatus.SHORTLISTED: {VendorStatus.CONTACTED, VendorStatus.QUOTED, VendorStatus.REJECTED, VendorStatus.CANCELLED},
-    VendorStatus.CONTACTED: {VendorStatus.QUOTED, VendorStatus.SHORTLISTED, VendorStatus.REJECTED, VendorStatus.CANCELLED},
-    VendorStatus.QUOTED: {VendorStatus.SELECTED, VendorStatus.CONTACTED, VendorStatus.REJECTED, VendorStatus.CANCELLED},
-    VendorStatus.SELECTED: {VendorStatus.BOOKED, VendorStatus.QUOTED, VendorStatus.REJECTED, VendorStatus.CANCELLED},
+    VendorStatus.DISCOVERED: {
+        VendorStatus.SHORTLISTED,
+        VendorStatus.CONTACTED,
+        VendorStatus.REJECTED,
+        VendorStatus.CANCELLED,
+    },
+    VendorStatus.SHORTLISTED: {
+        VendorStatus.CONTACTED,
+        VendorStatus.QUOTED,
+        VendorStatus.REJECTED,
+        VendorStatus.CANCELLED,
+    },
+    VendorStatus.CONTACTED: {
+        VendorStatus.QUOTED,
+        VendorStatus.SHORTLISTED,
+        VendorStatus.REJECTED,
+        VendorStatus.CANCELLED,
+    },
+    VendorStatus.QUOTED: {
+        VendorStatus.SELECTED,
+        VendorStatus.CONTACTED,
+        VendorStatus.REJECTED,
+        VendorStatus.CANCELLED,
+    },
+    VendorStatus.SELECTED: {
+        VendorStatus.BOOKED,
+        VendorStatus.QUOTED,
+        VendorStatus.REJECTED,
+        VendorStatus.CANCELLED,
+    },
     VendorStatus.BOOKED: {VendorStatus.CANCELLED},
     VendorStatus.REJECTED: set(),
     VendorStatus.CANCELLED: set(),

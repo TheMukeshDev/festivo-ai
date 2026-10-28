@@ -88,7 +88,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
     // pending Google redirect are resolved. Otherwise a returning Google user
     // briefly lands on the sign-in page before the workspace.
     let sessionResolved = false
-    let redirectResolved = false
+    const shouldResolveRedirect = window.location.pathname === '/auth/callback'
+    let redirectResolved = !shouldResolveRedirect
     const releaseGate = () => {
       if (mounted && sessionResolved && redirectResolved) setLoading(false)
     }
@@ -107,32 +108,36 @@ export function AuthProvider({ children }: AuthProviderProps) {
       releaseGate()
     })
 
-    // The cross-site redirect event can be lost under Chrome's storage
-    // partitioning; never let it hang silently — resolve after a bounded wait
-    // and tell the user instead of bouncing them back to the form.
-    const redirectWaitMs = 12_000
-    const redirectTimeout = new Promise<never>((_, reject) => {
-      window.setTimeout(
-        () => reject(new Error('Google sign-in did not finish. Please try again.')),
-        redirectWaitMs,
-      )
-    })
-    void Promise.race([getRedirectResult(client), redirectTimeout])
-      .then((result) => {
-        if (!mounted) return
-        if (result?.user) {
-          sessionRef.current = result.user
-          setSession(toAuthUser(result.user))
-        }
+    if (shouldResolveRedirect) {
+      // The cross-site redirect event can be lost under Chrome's storage
+      // partitioning; never let it hang silently — resolve after a bounded wait
+      // and tell the user instead of bouncing them back to the form.
+      const redirectWaitMs = 12_000
+      const redirectTimeout = new Promise<never>((_, reject) => {
+        window.setTimeout(
+          () => reject(new Error('Google sign-in did not finish. Please try again.')),
+          redirectWaitMs,
+        )
       })
-      .catch((error: unknown) => {
-        if (mounted) toast.error(getAuthErrorMessage(error, 'Google sign-in failed.'))
-      })
-      .finally(() => {
-        if (!mounted) return
-        redirectResolved = true
-        releaseGate()
-      })
+      void Promise.race([getRedirectResult(client), redirectTimeout])
+        .then((result) => {
+          if (!mounted) return
+          if (result?.user) {
+            sessionRef.current = result.user
+            setSession(toAuthUser(result.user))
+          }
+        })
+        .catch((error: unknown) => {
+          if (mounted) toast.error(getAuthErrorMessage(error, 'Google sign-in failed.'))
+        })
+        .finally(() => {
+          if (!mounted) return
+          redirectResolved = true
+          releaseGate()
+        })
+    } else {
+      releaseGate()
+    }
 
     const handleUnauthorized = () => {
       setSessionExpired(true)

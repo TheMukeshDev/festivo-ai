@@ -98,7 +98,9 @@ def make_settings() -> Callable[..., Settings]:
         values.update(overrides)
         if values.get("app_env") == "production":
             values.setdefault("firebase_project_id", "test-project")
-            values.setdefault("firebase_client_email", "firebase-adminsdk@test-project.iam.gserviceaccount.com")
+            values.setdefault(
+                "firebase_client_email", "firebase-adminsdk@test-project.iam.gserviceaccount.com"
+            )
             values.setdefault("firebase_private_key", "test-private-key")
         return Settings(**values)
 
@@ -175,6 +177,7 @@ def event_payload() -> Callable[..., dict[str, Any]]:
         }
         payload.update(overrides)
         return payload
+
     return factory
 
 
@@ -192,7 +195,14 @@ def app(
     task_service: TaskService,
     auth_verifier: TokenVerifier,
 ) -> FastAPI:
-    return create_app(make_settings(), event_service, budget_service, timeline_service, task_service, auth_verifier=auth_verifier)
+    return create_app(
+        make_settings(),
+        event_service,
+        budget_service,
+        timeline_service,
+        task_service,
+        auth_verifier=auth_verifier,
+    )
 
 
 @pytest.fixture

@@ -115,7 +115,11 @@ MoneyValue = Annotated[
     Field(ge=Decimal("0"), le=MAX_MONEY, max_digits=12, decimal_places=2, allow_inf_nan=False),
     AfterValidator(_normalize_money),
 ]
-Currency = Annotated[str, StringConstraints(strip_whitespace=True, min_length=3, max_length=3), AfterValidator(_normalize_currency)]
+Currency = Annotated[
+    str,
+    StringConstraints(strip_whitespace=True, min_length=3, max_length=3),
+    AfterValidator(_normalize_currency),
+]
 Email = Annotated[str, AfterValidator(_validate_email)]
 Phone = Annotated[str, AfterValidator(_validate_phone)]
 Website = Annotated[str, AfterValidator(_validate_url)]

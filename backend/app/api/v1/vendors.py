@@ -2,7 +2,7 @@
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query, Request, status
+from fastapi import APIRouter, Depends, Query, Request, Response, status
 
 from app.api.dependencies import get_current_user
 from app.core.auth import AuthenticatedUser
@@ -131,8 +131,6 @@ def delete_vendor(
     request: Request,
     user: Annotated[AuthenticatedUser, Depends(get_current_user)],
 ):
-    from fastapi import Response
-
     _service(request).delete(user.user_id, event_id, vendor_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 

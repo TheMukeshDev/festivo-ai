@@ -1,4 +1,4 @@
-﻿"""Personalized AI planning context and validation service."""
+"""Personalized AI planning context and validation service."""
 
 from __future__ import annotations
 
@@ -71,9 +71,7 @@ class AIPlanningService:
                 "reserve_type": budget_view.budget.reserve_type.value,
                 "reserve_value": str(budget_view.budget.reserve_value),
                 "reserve_amount": str(budget_view.calculation.reserve_amount),
-                "available_for_planning": str(
-                    budget_view.calculation.available_for_planning
-                ),
+                "available_for_planning": str(budget_view.calculation.available_for_planning),
                 "planned_spending": str(budget_view.calculation.planned_spending),
                 "remaining_total": str(budget_view.calculation.remaining_total),
                 "status": budget_view.calculation.status.value,
@@ -166,8 +164,7 @@ class AIPlanningService:
             )
         except AIOutputValidationError:
             repair_prompt = (
-                user_prompt
-                + "\n\nReturn ONLY valid JSON with every required field. No markdown."
+                user_prompt + "\n\nReturn ONLY valid JSON with every required field. No markdown."
             )
             raw = self._provider.generate_structured(
                 system=SYSTEM_PROMPT,

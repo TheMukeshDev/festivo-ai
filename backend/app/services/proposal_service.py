@@ -18,6 +18,7 @@ from app.core.exceptions import (
     ResourceNotFoundError,
     ValidationIssue,
 )
+from app.core.ids import parse_uuid
 from app.models.budget import MAX_MONEY
 from app.models.event import Event
 from app.models.proposal import (
@@ -37,7 +38,7 @@ from app.schemas.proposal import (
     ProposalRejectResponse,
     ProposalResponse,
 )
-from app.schemas.task import TaskCreate
+from app.schemas.task import TaskCreate, TaskUpdate
 from app.services.ai.schemas import AIPlanResponse
 from app.services.budget_service import BudgetService
 from app.services.event_service import EventService
@@ -135,7 +136,7 @@ class ProposalService:
 
     def get(self, owner_id: UUID, event_id: str, raw_proposal_id: str) -> Proposal:
         event = self._event_service.get(owner_id, event_id)
-        proposal_id = self._parse_identifier(raw_proposal_id, _PROPOSAL_NOT_FOUND)
+        proposal_id = parse_uuid(raw_proposal_id, _PROPOSAL_NOT_FOUND)
         proposal = self._repository.get(proposal_id, event.event_id, owner_id)
         if proposal is None:
             raise ResourceNotFoundError(_PROPOSAL_NOT_FOUND)
@@ -293,9 +294,7 @@ class ProposalService:
             ProposalItemStatus(item["status"]) == ProposalItemStatus.PENDING for item in items
         )
         new_status = (
-            ProposalStatus.PARTIALLY_APPROVED
-            if remaining_pending
-            else ProposalStatus.APPROVED
+            ProposalStatus.PARTIALLY_APPROVED if remaining_pending else ProposalStatus.APPROVED
         )
         snapshot = self._snapshot(owner_id, event)
         updated = replace(
@@ -390,9 +389,7 @@ class ProposalService:
             ProposalItemStatus(item["status"]) == ProposalItemStatus.PENDING for item in items
         )
         new_status = (
-            ProposalStatus.PARTIALLY_APPROVED
-            if remaining_pending
-            else ProposalStatus.REJECTED
+            ProposalStatus.PARTIALLY_APPROVED if remaining_pending else ProposalStatus.REJECTED
         )
         updated = replace(
             proposal,
@@ -509,7 +506,9 @@ class ProposalService:
                 payload = TaskCreate(
                     title=data["title"],
                     description=data.get("description"),
-                    priority=_PRIORITY_MAP.get(str(data.get("priority", "medium")), TaskPriority.MEDIUM),
+                    priority=_PRIORITY_MAP.get(
+                        str(data.get("priority", "medium")), TaskPriority.MEDIUM
+                    ),
                     due_at=data.get("due_at"),
                 )
             except (KeyError, ValidationError):
@@ -580,8 +579,6 @@ class ProposalService:
                         "The task due date was edited by the user; the suggestion was not applied.",
                     )
             self._validate_task_due_date(event, due_at)
-            from app.schemas.task import TaskUpdate
-
             updated = self._task_service.update(
                 owner_id,
                 str(event.event_id),
@@ -657,7 +654,9 @@ class ProposalService:
                 {
                     "title": suggestion.title,
                     "description": suggestion.explanation,
-                    "priority": _PRIORITY_MAP.get(suggestion.priority.value, TaskPriority.MEDIUM).value,
+                    "priority": _PRIORITY_MAP.get(
+                        suggestion.priority.value, TaskPriority.MEDIUM
+                    ).value,
                     "due_at": None,
                     "suggested_timing": suggestion.suggested_timing,
                     "relative_deadline": suggestion.relative_deadline,
@@ -676,7 +675,9 @@ class ProposalService:
                 {
                     "title": title[:200],
                     "description": suggestion.rationale,
-                    "priority": _PRIORITY_MAP.get(suggestion.priority.value, TaskPriority.MEDIUM).value,
+                    "priority": _PRIORITY_MAP.get(
+                        suggestion.priority.value, TaskPriority.MEDIUM
+                    ).value,
                     "due_at": None,
                 },
             )
@@ -859,15 +860,3 @@ class ProposalService:
 
     def _now(self) -> datetime:
         return coerce_utc(self._clock())
-
-    @staticmethod
-    def _parse_identifier(raw_identifier: str, not_found_message: str) -> UUID:
-        if len(raw_identifier) != 36:
-            raise ResourceNotFoundError(not_found_message)
-        try:
-            identifier = UUID(raw_identifier)
-        except ValueError:
-            raise ResourceNotFoundError(not_found_message) from None
-        if str(identifier) != raw_identifier.lower():
-            raise ResourceNotFoundError(not_found_message)
-        return identifier

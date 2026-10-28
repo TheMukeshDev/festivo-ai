@@ -7,6 +7,7 @@ from zoneinfo import ZoneInfo
 
 from app.core.clock import Clock, coerce_utc, utc_now
 from app.core.exceptions import DomainValidationError, ResourceNotFoundError, ValidationIssue
+from app.core.ids import parse_uuid
 from app.models.event import Event
 from app.repositories.event_repository import EventRepository
 from app.schemas.event import EventCreate, EventUpdate
@@ -51,7 +52,7 @@ class EventService:
         return self._repository.save(event)
 
     def get(self, owner_id: UUID, raw_event_id: str) -> Event:
-        event_id = self._parse_event_id(raw_event_id)
+        event_id = parse_uuid(raw_event_id, _NOT_FOUND_MESSAGE)
         event = self._repository.get(event_id, owner_id)
         if event is None:
             raise ResourceNotFoundError(_NOT_FOUND_MESSAGE)
@@ -67,7 +68,7 @@ class EventService:
         return self._repository.list(owner_id, limit=limit, offset=offset)
 
     def update(self, owner_id: UUID, raw_event_id: str, payload: EventUpdate) -> Event:
-        event_id = self._parse_event_id(raw_event_id)
+        event_id = parse_uuid(raw_event_id, _NOT_FOUND_MESSAGE)
         event = self._repository.get(event_id, owner_id)
         if event is None:
             raise ResourceNotFoundError(_NOT_FOUND_MESSAGE)
@@ -114,7 +115,7 @@ class EventService:
         return updated
 
     def delete(self, owner_id: UUID, raw_event_id: str) -> None:
-        event_id = self._parse_event_id(raw_event_id)
+        event_id = parse_uuid(raw_event_id, _NOT_FOUND_MESSAGE)
         if not self._repository.delete(event_id, owner_id):
             raise ResourceNotFoundError(_NOT_FOUND_MESSAGE)
 
@@ -130,21 +131,8 @@ class EventService:
                     ValidationIssue(
                         field="body.event_date",
                         message=(
-                            "Event date must be today or later in the event "
-                            f"timezone ({timezone})."
+                            f"Event date must be today or later in the event timezone ({timezone})."
                         ),
                     )
                 ]
             )
-
-    @staticmethod
-    def _parse_event_id(raw_event_id: str) -> UUID:
-        if len(raw_event_id) != 36:
-            raise ResourceNotFoundError(_NOT_FOUND_MESSAGE)
-        try:
-            event_id = UUID(raw_event_id)
-        except ValueError:
-            raise ResourceNotFoundError(_NOT_FOUND_MESSAGE) from None
-        if str(event_id) != raw_event_id.lower():
-            raise ResourceNotFoundError(_NOT_FOUND_MESSAGE)
-        return event_id

@@ -13,8 +13,7 @@ from app.models.timeline import Timeline
 from app.repositories.planning_repository import PlanningRepository
 
 _TIMELINE_COLUMNS = (
-    "id, event_id, owner_id, start_date, end_date, timezone, generated_at, "
-    "created_at, updated_at"
+    "id, event_id, owner_id, start_date, end_date, timezone, generated_at, created_at, updated_at"
 )
 _TASK_COLUMNS = (
     "id, event_id, owner_id, timeline_id, template_key, title, description, status, "

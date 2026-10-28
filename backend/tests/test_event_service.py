@@ -41,7 +41,9 @@ def test_event_date_policy_uses_the_configured_timezone_at_utc_boundary(
     assert exc_info.value.issues[0].field == "body.event_date"
     assert "Asia/Kolkata" in exc_info.value.issues[0].message
 
-    event = event_service.create(TEST_USER_ID, EventCreate(**event_payload(event_date="2030-05-16")))
+    event = event_service.create(
+        TEST_USER_ID, EventCreate(**event_payload(event_date="2030-05-16"))
+    )
     assert event.event_date.isoformat() == "2030-05-16"
 
 
@@ -153,7 +155,9 @@ def test_in_memory_repository_handles_concurrent_creates(
     event_payload: EventPayloadFactory,
 ) -> None:
     def create(index: int) -> Event:
-        return event_service.create(TEST_USER_ID, EventCreate(**event_payload(name=f"Event {index}")))
+        return event_service.create(
+            TEST_USER_ID, EventCreate(**event_payload(name=f"Event {index}"))
+        )
 
     with ThreadPoolExecutor(max_workers=8) as executor:
         events = list(executor.map(create, range(100)))

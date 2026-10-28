@@ -1,4 +1,5 @@
 """Pydantic schemas for AI planning outputs."""
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -7,6 +8,11 @@ from enum import StrEnum
 from typing import Any
 
 from pydantic import BaseModel, Field, field_validator, model_validator
+
+# Shared schema bounds — named so validators and Field() constraints stay in sync.
+_ISO_CURRENCY_CODE_LENGTH = 3
+_MAX_TEXT_LENGTH = 80
+_MAX_LIST_ITEMS = 80
 
 
 class Priority(StrEnum):
@@ -24,7 +30,7 @@ class BudgetSource(StrEnum):
 
 
 class Recommendation(BaseModel):
-    category: str = Field(min_length=1, max_length=80)
+    category: str = Field(min_length=1, max_length=_MAX_TEXT_LENGTH)
     description: str = Field(min_length=1, max_length=2000)
     rationale: str = Field(min_length=1, max_length=2000)
     priority: Priority = Priority.MEDIUM
@@ -46,7 +52,7 @@ class TaskSuggestion(BaseModel):
     suggested_timing: str | None = Field(default=None, max_length=200)
     relative_deadline: str | None = Field(default=None, max_length=200)
     priority: Priority = Priority.MEDIUM
-    category: str | None = Field(default=None, max_length=80)
+    category: str | None = Field(default=None, max_length=_MAX_TEXT_LENGTH)
 
     @model_validator(mode="after")
     def validate_timing(self) -> TaskSuggestion:
@@ -57,11 +63,13 @@ class TaskSuggestion(BaseModel):
 
 
 class BudgetSuggestion(BaseModel):
-    category: str = Field(min_length=1, max_length=80)
+    category: str = Field(min_length=1, max_length=_MAX_TEXT_LENGTH)
     description: str = Field(min_length=1, max_length=1000)
     source: BudgetSource = BudgetSource.SUGGESTED_ALLOCATION
     suggested_amount: Decimal | None = None
-    currency: str = Field(min_length=3, max_length=3)
+    currency: str = Field(
+        min_length=_ISO_CURRENCY_CODE_LENGTH, max_length=_ISO_CURRENCY_CODE_LENGTH
+    )
     rationale: str = Field(min_length=1, max_length=2000)
     exceeds_available: bool = False
     assumptions: list[str] = Field(default_factory=list, max_length=20)
@@ -70,7 +78,7 @@ class BudgetSuggestion(BaseModel):
     @classmethod
     def validate_currency(cls, v: str) -> str:
         v = v.strip().upper()
-        if len(v) != 3 or not v.isalpha():
+        if len(v) != _ISO_CURRENCY_CODE_LENGTH or not v.isalpha():
             raise ValueError("currency must be a 3-letter ISO code")
         return v
 
@@ -85,7 +93,7 @@ class BudgetSuggestion(BaseModel):
 
 
 class VendorCategorySuggestion(BaseModel):
-    category: str = Field(min_length=1, max_length=80)
+    category: str = Field(min_length=1, max_length=_MAX_TEXT_LENGTH)
     rationale: str = Field(min_length=1, max_length=1000)
     priority: Priority = Priority.MEDIUM
     notes: str | None = Field(default=None, max_length=1000)
@@ -95,25 +103,31 @@ class AIPlanResponse(BaseModel):
     event_id: str
     summary: str = Field(min_length=1, max_length=3000)
     theme_ideas: list[str] = Field(default_factory=list, max_length=30)
-    recommendations: list[Recommendation] = Field(default_factory=list, max_length=80)
-    budget_suggestions: list[BudgetSuggestion] = Field(default_factory=list, max_length=80)
-    timeline_suggestions: list[str] = Field(default_factory=list, max_length=80)
-    task_suggestions: list[TaskSuggestion] = Field(default_factory=list, max_length=80)
-    vendor_category_suggestions: list[VendorCategorySuggestion] = Field(default_factory=list, max_length=80)
-    risks_and_constraints: list[str] = Field(default_factory=list, max_length=80)
-    assumptions: list[str] = Field(default_factory=list, max_length=80)
-    next_steps: list[str] = Field(default_factory=list, max_length=80)
+    recommendations: list[Recommendation] = Field(default_factory=list, max_length=_MAX_LIST_ITEMS)
+    budget_suggestions: list[BudgetSuggestion] = Field(
+        default_factory=list, max_length=_MAX_LIST_ITEMS
+    )
+    timeline_suggestions: list[str] = Field(default_factory=list, max_length=_MAX_LIST_ITEMS)
+    task_suggestions: list[TaskSuggestion] = Field(default_factory=list, max_length=_MAX_LIST_ITEMS)
+    vendor_category_suggestions: list[VendorCategorySuggestion] = Field(
+        default_factory=list, max_length=_MAX_LIST_ITEMS
+    )
+    risks_and_constraints: list[str] = Field(default_factory=list, max_length=_MAX_LIST_ITEMS)
+    assumptions: list[str] = Field(default_factory=list, max_length=_MAX_LIST_ITEMS)
+    next_steps: list[str] = Field(default_factory=list, max_length=_MAX_LIST_ITEMS)
     generated_at: datetime
     model_used: str = Field(min_length=1, max_length=200)
 
-    @field_validator("theme_ideas", "timeline_suggestions", "risks_and_constraints", "assumptions", "next_steps")
+    @field_validator(
+        "theme_ideas", "timeline_suggestions", "risks_and_constraints", "assumptions", "next_steps"
+    )
     @classmethod
     def validate_string_lists(cls, v: list[str]) -> list[str]:
         cleaned = []
         for item in v:
             if isinstance(item, str) and item.strip():
                 cleaned.append(item.strip())
-            if len(cleaned) >= 80:
+            if len(cleaned) >= _MAX_LIST_ITEMS:
                 break
         return cleaned
 
@@ -129,4 +143,3 @@ class AIPlanRequest(BaseModel):
     preferences: dict[str, Any] = Field(default_factory=dict)
     focus_areas: list[str] = Field(default_factory=list, max_length=20)
     additional_notes: str | None = Field(default=None, max_length=2000)
-

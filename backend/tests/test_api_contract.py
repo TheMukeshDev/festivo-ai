@@ -36,7 +36,6 @@ def test_openapi_schema_generation_and_routes(client: TestClient) -> None:
     assert "/api/v1/events/{event_id}/export/csv" in schema["paths"]
 
 
-
 def test_health_endpoints_conform_to_declared_models(client: TestClient) -> None:
     basic_payload = client.get("/health").json()
     versioned_payload = client.get("/api/v1/health").json()

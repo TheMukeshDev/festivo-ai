@@ -1,7 +1,7 @@
 """Firebase ID-token verification and authenticated user identity."""
 
 from dataclasses import dataclass
-from typing import Protocol
+from typing import Any, Protocol
 from uuid import NAMESPACE_URL, UUID, uuid5
 
 import firebase_admin
@@ -37,7 +37,7 @@ class TokenVerifier(Protocol):
 class RejectAllTokenVerifier:
     """Fail closed when authentication has not been configured."""
 
-    def verify(self, token: str) -> AuthenticatedUser:
+    def verify(self, _token: str) -> AuthenticatedUser:
         raise AuthenticationError
 
 
@@ -84,6 +84,19 @@ class FirebaseTokenVerifier:
         if not token:
             raise AuthenticationError
 
+        claims = self._decode_claims(token)
+        raw_user_id = claims.get("sub")
+        if not isinstance(raw_user_id, str) or not raw_user_id:
+            raise AuthenticationError
+        if claims.get("aud") != self._project_id:
+            raise AuthenticationError
+        return AuthenticatedUser(
+            user_id=uuid5(NAMESPACE_URL, f"firebase:{self._project_id}:{raw_user_id}"),
+            firebase_uid=raw_user_id,
+        )
+
+    def _decode_claims(self, token: str) -> dict[str, Any]:
+        """Decode and validate token claims, translating failures to auth errors."""
         try:
             if self._client_email and self._private_key and self._app is None:
                 self._app = self._get_or_create_app(
@@ -92,17 +105,16 @@ class FirebaseTokenVerifier:
                     self._private_key,
                 )
             if self._app is not None:
-                claims = firebase_auth.verify_id_token(token, app=self._app, check_revoked=True)
-            else:
-                signing_key = self._jwk_client.get_signing_key_from_jwt(token)
-                claims = jwt.decode(
-                    token,
-                    signing_key.key,
-                    algorithms=["RS256"],
-                    audience=self._project_id,
-                    issuer=f"https://securetoken.google.com/{self._project_id}",
-                    options={"require": ["exp", "iat", "sub", "aud", "iss"]},
-                )
+                return firebase_auth.verify_id_token(token, app=self._app, check_revoked=True)
+            signing_key = self._jwk_client.get_signing_key_from_jwt(token)
+            return jwt.decode(
+                token,
+                signing_key.key,
+                algorithms=["RS256"],
+                audience=self._project_id,
+                issuer=f"https://securetoken.google.com/{self._project_id}",
+                options={"require": ["exp", "iat", "sub", "aud", "iss"]},
+            )
         except firebase_auth.RevokedIdTokenError:
             raise AuthenticationError from None
         except firebase_auth.UserDisabledError:
@@ -113,13 +125,3 @@ class FirebaseTokenVerifier:
             raise AuthenticationError from exc
         except (firebase_admin.exceptions.FirebaseError, ValueError) as exc:
             raise AuthenticationError from exc
-
-        raw_user_id = claims.get("sub")
-        if not isinstance(raw_user_id, str) or not raw_user_id:
-            raise AuthenticationError
-        if claims.get("aud") != self._project_id:
-            raise AuthenticationError
-        return AuthenticatedUser(
-            user_id=uuid5(NAMESPACE_URL, f"firebase:{self._project_id}:{raw_user_id}"),
-            firebase_uid=raw_user_id,
-        )

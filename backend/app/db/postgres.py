@@ -79,9 +79,7 @@ class PostgresDatabase:
             try:
                 scope.conn = self._get_pool().getconn()
             except psycopg.Error as exc:
-                raise StorageUnavailableError(
-                    "The database is temporarily unavailable."
-                ) from exc
+                raise StorageUnavailableError("The database is temporarily unavailable.") from exc
         return scope.conn
 
     @contextmanager

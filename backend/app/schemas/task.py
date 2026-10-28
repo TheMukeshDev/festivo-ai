@@ -57,9 +57,7 @@ def _normalize_datetime(value: object) -> object:
         try:
             value = datetime.fromisoformat(candidate.replace("Z", "+00:00"))
         except ValueError as exc:
-            raise ValueError(
-                "Due date must be an ISO-8601 timestamp with a timezone."
-            ) from exc
+            raise ValueError("Due date must be an ISO-8601 timestamp with a timezone.") from exc
     if not isinstance(value, datetime):
         raise ValueError("Due date must be an ISO-8601 timestamp with a timezone.")
     if value.tzinfo is None or value.utcoffset() is None:

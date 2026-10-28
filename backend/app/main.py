@@ -74,10 +74,7 @@ def create_app(
         )
 
     if auth_verifier is None:
-        if (
-            resolved_settings.firebase_auth_configured
-            and resolved_settings.firebase_project_id
-        ):
+        if resolved_settings.firebase_auth_configured and resolved_settings.firebase_project_id:
             resolved_auth_verifier = FirebaseTokenVerifier(
                 project_id=resolved_settings.firebase_project_id,
                 client_email=(
@@ -177,7 +174,10 @@ def create_app(
 
     if ai_planning_service is None:
         provider = None
-        if resolved_settings.llm_enabled and resolved_settings.llm_configuration_state == "configured":
+        if (
+            resolved_settings.llm_enabled
+            and resolved_settings.llm_configuration_state == "configured"
+        ):
             try:
                 provider = GeminiProvider(resolved_settings)
             except Exception:

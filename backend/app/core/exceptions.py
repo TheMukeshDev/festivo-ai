@@ -14,6 +14,10 @@ from app.schemas.errors import ErrorDetail, ErrorResponse, FieldError
 
 logger = logging.getLogger(__name__)
 
+# Status codes at or above this threshold fall back to the generic
+# internal-error message when no specific text is registered.
+_MIN_SERVER_ERROR_STATUS = 500
+
 
 @dataclass(frozen=True, slots=True)
 class ValidationIssue:
@@ -176,7 +180,7 @@ def register_exception_handlers(app: FastAPI) -> None:
         message = _HTTP_ERROR_MESSAGES.get(
             exc.status_code,
             "An internal server error occurred."
-            if exc.status_code >= 500
+            if exc.status_code >= _MIN_SERVER_ERROR_STATUS
             else "The request could not be completed.",
         )
         return _json_error(
