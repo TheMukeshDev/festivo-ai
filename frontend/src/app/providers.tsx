@@ -1,10 +1,11 @@
-import { useState, type ReactNode } from 'react'
+import { useState, type ReactNode, lazy, Suspense } from 'react'
 import { QueryClientProvider } from '@tanstack/react-query'
-import { Toaster } from 'sonner'
 
 import { createAppQueryClient } from '@/app/query-client'
 import { AuthProvider } from '@/features/auth/auth-provider'
 import type { QueryClient } from '@tanstack/react-query'
+
+const Toaster = lazy(() => import('sonner').then(m => ({ default: m.Toaster })))
 
 export function AppProviders({
   children,
@@ -19,7 +20,9 @@ export function AppProviders({
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         {children}
-        <Toaster position="top-right" closeButton richColors />
+        <Suspense fallback={null}>
+          <Toaster position="top-right" closeButton richColors />
+        </Suspense>
       </AuthProvider>
     </QueryClientProvider>
   )
