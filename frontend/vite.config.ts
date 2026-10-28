@@ -15,6 +15,8 @@ export default defineConfig({
     strictPort: true,
   },
   build: {
+    target: 'es2020',
+    cssCodeSplit: true,
     rollupOptions: {
       output: {
         manualChunks(id) {
