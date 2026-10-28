@@ -4,6 +4,14 @@ import { ArrowRight, Menu } from 'lucide-react'
 
 import { Brand } from '@/components/layout/brand'
 import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog'
 import { useAuth } from '@/features/auth/use-auth'
 
 const navLinks = [
@@ -58,23 +66,21 @@ export function PublicLayout() {
               </>
             )}
           </div>
-          <div className="relative md:hidden">
-            <Button
-              variant="ghost"
-              size="icon"
-              aria-label={menuOpen ? 'Close navigation menu' : 'Open navigation menu'}
-              aria-expanded={menuOpen}
-              aria-controls="mobile-navigation"
-              onClick={() => setMenuOpen((open) => !open)}
-            >
-              <Menu aria-hidden="true" />
-            </Button>
-            {menuOpen ? (
-              <div
-                id="mobile-navigation"
-                className="absolute right-0 top-12 z-50 w-64 rounded-md border border-line bg-surface p-4 shadow-raised"
+          <Dialog open={menuOpen} onOpenChange={setMenuOpen}>
+            <DialogTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="md:hidden"
+                aria-label="Open navigation menu"
               >
-                <p className="text-sm font-semibold text-ink">Navigate Festivo</p>
+                <Menu aria-hidden="true" />
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-sm">
+              <DialogHeader>
+                <DialogTitle>Navigate Festivo</DialogTitle>
+              </DialogHeader>
               <nav aria-label="Mobile navigation" className="flex flex-col gap-1">
                 {navLinks.map((link) => (
                   <a
@@ -90,23 +96,28 @@ export function PublicLayout() {
               </nav>
               <div className="mt-4 grid gap-2">
                 {auth.session ? (
-                  <Button asChild onClick={() => setMenuOpen(false)}>
-                    <Link to="/app">Open workspace</Link>
-                  </Button>
+                  <DialogClose asChild>
+                    <Button asChild>
+                      <Link to="/app">Open workspace</Link>
+                    </Button>
+                  </DialogClose>
                 ) : (
                   <>
-                    <Button asChild variant="outline" onClick={() => setMenuOpen(false)}>
-                      <Link to="/sign-in">Sign in</Link>
-                    </Button>
-                    <Button asChild onClick={() => setMenuOpen(false)}>
-                      <Link to="/sign-up">Create your workspace</Link>
-                    </Button>
+                    <DialogClose asChild>
+                      <Button asChild variant="outline">
+                        <Link to="/sign-in">Sign in</Link>
+                      </Button>
+                    </DialogClose>
+                    <DialogClose asChild>
+                      <Button asChild>
+                        <Link to="/sign-up">Create your workspace</Link>
+                      </Button>
+                    </DialogClose>
                   </>
                 )}
               </div>
-              </div>
-            ) : null}
-          </div>
+            </DialogContent>
+          </Dialog>
         </div>
       </header>
 

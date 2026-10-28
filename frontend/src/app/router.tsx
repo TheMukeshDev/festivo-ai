@@ -1,6 +1,8 @@
 import { createBrowserRouter, type RouteObject } from 'react-router-dom'
 import { lazy, Suspense } from 'react'
 
+import { AppShell } from '@/components/layout/app-shell'
+import { EventLayout } from '@/components/layout/event-layout'
 import { PublicLayout } from '@/components/layout/public-layout'
 import { ProtectedRoute, PublicOnlyRoute } from '@/features/auth/auth-guard'
 import { LandingPage } from '@/pages/landing-page'
@@ -14,12 +16,6 @@ const withSuspense = (Component: React.LazyExoticComponent<React.ComponentType>)
   </Suspense>
 )
 
-const AppShell = lazy(() =>
-  import('@/components/layout/app-shell').then(m => ({ default: m.AppShell })),
-)
-const EventLayout = lazy(() =>
-  import('@/components/layout/event-layout').then(m => ({ default: m.EventLayout })),
-)
 const AiPlanPage = lazy(() => import('@/pages/events/ai-plan-page').then(m => ({ default: m.AiPlanPage })))
 const AuthCallbackPage = lazy(() => import('@/pages/auth/auth-callback-page').then(m => ({ default: m.AuthCallbackPage })))
 const BudgetPage = lazy(() => import('@/pages/events/budget-page').then(m => ({ default: m.BudgetPage })))
@@ -80,7 +76,7 @@ export const routes: RouteObject[] = [
     path: '/app',
     element: (
       <ProtectedRoute>
-        {withSuspense(AppShell)}
+        <AppShell />
       </ProtectedRoute>
     ),
     children: [
@@ -89,7 +85,7 @@ export const routes: RouteObject[] = [
       { path: 'events/new', element: <EventCreatePage /> },
       {
         path: 'events/:eventId',
-        element: withSuspense(EventLayout),
+        element: <EventLayout />,
         children: [
           { index: true, element: <EventOverviewPage /> },
           { path: 'edit', element: <EventEditPage /> },
