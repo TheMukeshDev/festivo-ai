@@ -1,4 +1,4 @@
-import { useState, type ReactNode, lazy, Suspense } from 'react'
+import { useEffect, useState, type ReactNode, lazy, Suspense } from 'react'
 import { QueryClientProvider } from '@tanstack/react-query'
 
 import { createAppQueryClient } from '@/app/query-client'
@@ -38,6 +38,44 @@ const authLoadingValue: AuthContextValue = {
   clearSessionExpired: () => undefined,
 }
 
+function needsAuthOnInitialLoad(): boolean {
+  const path = window.location.pathname
+  return (
+    path.startsWith('/app') ||
+    path === '/sign-in' ||
+    path === '/sign-up' ||
+    path === '/forgot-password' ||
+    path === '/reset-password' ||
+    path === '/auth/callback'
+  )
+}
+
+function AuthBoundary({ children }: { children: ReactNode }) {
+  const [authRequested, setAuthRequested] = useState(needsAuthOnInitialLoad)
+
+  useEffect(() => {
+    if (authRequested) return
+
+    const requestAuth = () => setAuthRequested(true)
+    window.addEventListener('pointerdown', requestAuth, { once: true, passive: true })
+    window.addEventListener('keydown', requestAuth, { once: true })
+    return () => {
+      window.removeEventListener('pointerdown', requestAuth)
+      window.removeEventListener('keydown', requestAuth)
+    }
+  }, [authRequested])
+
+  if (!authRequested) {
+    return <AuthContext.Provider value={authLoadingValue}>{children}</AuthContext.Provider>
+  }
+
+  return (
+    <Suspense fallback={<AuthContext.Provider value={authLoadingValue}>{children}</AuthContext.Provider>}>
+      <AuthProvider>{children}</AuthProvider>
+    </Suspense>
+  )
+}
+
 export function AppProviders({
   children,
   client,
@@ -49,15 +87,7 @@ export function AppProviders({
 
   return (
     <QueryClientProvider client={queryClient}>
-      <Suspense
-        fallback={
-          <AuthContext.Provider value={authLoadingValue}>
-            {children}
-          </AuthContext.Provider>
-        }
-      >
-        <AuthProvider>{children}</AuthProvider>
-      </Suspense>
+      <AuthBoundary>{children}</AuthBoundary>
       <Suspense fallback={null}>
         <Toaster position="top-right" closeButton richColors />
       </Suspense>
