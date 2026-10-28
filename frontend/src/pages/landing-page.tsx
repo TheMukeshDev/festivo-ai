@@ -173,7 +173,7 @@ function ProductPreview() {
               <p className="text-[0.65rem] font-semibold uppercase tracking-[0.1em] text-muted">
                 Planning progress
               </p>
-                <div className="mt-3 flex items-end gap-1.5" role="img" aria-label="Planning progress chart showing increasing task completion">
+              <div className="mt-3 flex items-end gap-1.5" aria-hidden="true">
                 {[35, 55, 48, 72, 66, 84, 76, 92].map((height, index) => (
                   <div
                     key={index}
