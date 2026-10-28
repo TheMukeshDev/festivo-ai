@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { useForm } from 'react-hook-form'
+import { useForm, useWatch } from 'react-hook-form'
 import {
   AlertTriangle,
   CalendarRange,
@@ -93,7 +93,7 @@ function TaskDialog({
   const {
     register,
     handleSubmit,
-    watch,
+    control,
     setValue,
     reset,
     setError,
@@ -102,13 +102,12 @@ function TaskDialog({
     resolver: zodResolver(taskFormSchema),
     defaultValues: task ? taskValues(task, event.timezone) : emptyTaskForm,
   })
-  const status = watch('status')
-  const priority = watch('priority')
+  const status = useWatch({ control, name: 'status' })
+  const priority = useWatch({ control, name: 'priority' })
 
   useEffect(() => {
     if (!open) return
     reset(task ? taskValues(task, event.timezone) : emptyTaskForm)
-    setFormError(null)
   }, [open, task, event.timezone, reset])
 
   const mutation = useMutation({

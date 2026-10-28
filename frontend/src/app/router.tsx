@@ -10,7 +10,7 @@ import { NotFoundPage } from '@/pages/not-found-page'
 import PrivacyPolicyPage from '@/pages/legal/privacy-policy-page'
 import TermsPage from '@/pages/legal/terms-page'
 
-const withSuspense = (Component: React.LazyExoticComponent<any>) => (
+const withSuspense = (Component: React.LazyExoticComponent<React.ComponentType>) => (
   <Suspense fallback={<div className="p-8 text-center">Loading...</div>}>
     <Component />
   </Suspense>

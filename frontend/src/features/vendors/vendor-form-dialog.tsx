@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { useForm } from 'react-hook-form'
+import { useForm, useWatch } from 'react-hook-form'
 import { AlertTriangle } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -28,7 +28,6 @@ import { vendorsApi } from '@/lib/api/queries'
 import {
   VENDOR_CATEGORIES,
   VENDOR_STATUSES,
-  vendorCategoryLabel,
   vendorStatusLabel,
 } from '@/lib/labels'
 import {
@@ -114,7 +113,7 @@ export function VendorFormDialog({
   const {
     register,
     handleSubmit,
-    watch,
+    control,
     setValue,
     reset,
     setError,
@@ -126,11 +125,11 @@ export function VendorFormDialog({
       : { ...emptyVendorForm, currency: defaultCurrency },
   })
 
-  const category = watch('category')
-  const status = watch('status')
-  const currency = watch('currency').toUpperCase()
-  const quotedCost = watch('quoted_cost')
-  const finalCost = watch('final_cost')
+  const category = useWatch({ control, name: 'category' })
+  const status = useWatch({ control, name: 'status' })
+  const currency = useWatch({ control, name: 'currency' }).toUpperCase()
+  const quotedCost = useWatch({ control, name: 'quoted_cost' })
+  const finalCost = useWatch({ control, name: 'final_cost' })
   const statusOptions = vendor
     ? allowedVendorStatuses(vendor.status)
     : VENDOR_STATUSES.map((item) => item.value)
@@ -144,7 +143,6 @@ export function VendorFormDialog({
   useEffect(() => {
     if (!open) return
     reset(vendor ? vendorValues(vendor) : { ...emptyVendorForm, currency: defaultCurrency })
-    setFormError(null)
   }, [open, vendor, defaultCurrency, reset])
 
   const mutation = useMutation({
@@ -559,8 +557,4 @@ export function VendorFormDialog({
       </DialogContent>
     </Dialog>
   )
-}
-
-export function vendorCategorySummary(vendor: VendorRecord): string {
-  return vendorCategoryLabel(vendor.category)
 }

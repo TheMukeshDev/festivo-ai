@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { useForm } from 'react-hook-form'
+import { useForm, useWatch } from 'react-hook-form'
 import { ArrowLeft, Save, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -143,7 +143,7 @@ function EventForm({ event }: { event?: EventRecord }) {
     handleSubmit,
     reset,
     setValue,
-    watch,
+    control,
     setError,
     formState: { errors, isSubmitting, isDirty },
   } = useForm<EventFormValues>({
@@ -156,8 +156,8 @@ function EventForm({ event }: { event?: EventRecord }) {
     if (event) reset(valuesFromEvent(event))
   }, [event, reset])
 
-  const eventType = watch('event_type')
-  const timezone = watch('timezone')
+  const eventType = useWatch({ control, name: 'event_type' })
+  const timezone = useWatch({ control, name: 'timezone' })
 
   const saveMutation = useMutation({
     mutationFn: async (values: EventFormValues) => {

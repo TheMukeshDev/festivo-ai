@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { useForm } from 'react-hook-form'
+import { useForm, useWatch } from 'react-hook-form'
 import {
   AlertTriangle,
   ArrowDownRight,
@@ -78,7 +78,7 @@ function SetupBudgetPanel({
   const {
     register,
     handleSubmit,
-    watch,
+    control,
     setValue,
     setError,
     formState: { errors, isSubmitting },
@@ -90,7 +90,7 @@ function SetupBudgetPanel({
       reserve_value: '10.00',
     },
   })
-  const reserveType = watch('reserve_type')
+  const reserveType = useWatch({ control, name: 'reserve_type' })
 
   const mutation = useMutation({
     mutationFn: (values: BudgetCreateValues) =>
@@ -236,7 +236,7 @@ function BudgetSettingsDialog({
   const {
     register,
     handleSubmit,
-    watch,
+    control,
     setValue,
     setError,
     reset,
@@ -249,7 +249,7 @@ function BudgetSettingsDialog({
       reserve_value: budget.reserve.value,
     },
   })
-  const reserveType = watch('reserve_type')
+  const reserveType = useWatch({ control, name: 'reserve_type' })
 
   useEffect(() => {
     if (open) {
@@ -258,7 +258,6 @@ function BudgetSettingsDialog({
         reserve_type: budget.reserve.type,
         reserve_value: budget.reserve.value,
       })
-      setFormError(null)
     }
   }, [open, budget, reset])
 
@@ -414,7 +413,7 @@ function ExpenseDialog({
   const {
     register,
     handleSubmit,
-    watch,
+    control,
     setValue,
     setError,
     reset,
@@ -429,7 +428,7 @@ function ExpenseDialog({
       notes: expense?.notes ?? '',
     },
   })
-  const status = watch('amount_status')
+  const status = useWatch({ control, name: 'amount_status' })
 
   useEffect(() => {
     if (!open) return
@@ -440,7 +439,6 @@ function ExpenseDialog({
       amount_status: expense?.amount_status ?? 'estimated',
       notes: expense?.notes ?? '',
     })
-    setFormError(null)
   }, [open, expense, reset])
 
   const mutation = useMutation({
