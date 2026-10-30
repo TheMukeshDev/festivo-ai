@@ -351,7 +351,7 @@ class ProposalService:
         event: Event,
         proposal: Proposal,
         item: dict[str, Any],
-        action_type: ProposalActionType,
+        action_type: ProposalActionType | str,
         *,
         allow_advisory: bool,
     ) -> AppliedItemResult:
@@ -561,7 +561,7 @@ class ProposalService:
         event: Event,
         proposal: Proposal,
         item: dict[str, Any],
-        action_type: ProposalActionType,
+        action_type: ProposalActionType | str,
         *,
         allow_advisory: bool,
     ) -> AppliedItemResult:
@@ -578,28 +578,35 @@ class ProposalService:
                 owner_id,
                 event,
                 item_id,
-                action_type,
+                ProposalActionType(action_type),
                 data,
                 template_key=template_key,
             )
         if action_type == ProposalActionType.UPDATE_TASK_DUE_DATE:
-            return self._apply_task_due_date(owner_id, event, item_id, action_type, data)
+            return self._apply_task_due_date(
+                owner_id, event, item_id, ProposalActionType.UPDATE_TASK_DUE_DATE, data
+            )
         if action_type == ProposalActionType.BUDGET_ALLOCATION_SUGGESTION:
             return self._apply_budget_advisory(
                 event,
                 item_id,
-                action_type,
+                ProposalActionType.BUDGET_ALLOCATION_SUGGESTION,
                 data,
                 allow_advisory=allow_advisory,
             )
         if action_type == ProposalActionType.ADVISORY:
             return self._result(
                 item_id,
-                action_type,
+                ProposalActionType.ADVISORY,
                 "applied",
                 "Recorded as an approved planning recommendation.",
             )
-        return self._result(item_id, action_type, "skipped", "Unsupported proposal action.")
+        return self._result(
+            item_id,
+            action_type,
+            "skipped",
+            "Unsupported proposal action.",
+        )
 
     def _apply_task_creation(
         self,
@@ -977,7 +984,7 @@ class ProposalService:
     @staticmethod
     def _result(
         item_id: str,
-        action_type: ProposalActionType,
+        action_type: ProposalActionType | str,
         status: str,
         message: str,
         *,
@@ -985,7 +992,7 @@ class ProposalService:
     ) -> AppliedItemResult:
         return AppliedItemResult(
             item_id=item_id,
-            action_type=action_type,
+            action_type=action_type if isinstance(action_type, ProposalActionType) else ProposalActionType.ADVISORY,
             status=status,
             message=message,
             resource_id=resource_id,
