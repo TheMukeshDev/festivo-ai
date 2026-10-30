@@ -36,7 +36,7 @@ class GeminiProvider(AIProvider):
             )
         try:
             # Deferred so the heavy SDK only loads when the LLM is actually configured.
-            from google import genai  # type: ignore[attr-defined] # noqa: PLC0415
+            from google import genai  # noqa: PLC0415
 
             self._genai = genai
             self._client = genai.Client(
