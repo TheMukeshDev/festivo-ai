@@ -14,6 +14,8 @@ export function TableWrap({
   return (
     <div
       className={cn('w-full overflow-x-auto rounded-md border border-line', className)}
+      // A scrollable region needs a focus stop so keyboard users can scroll it.
+      // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex
       tabIndex={0}
       role="region"
       aria-label={label ?? 'Scrollable table'}

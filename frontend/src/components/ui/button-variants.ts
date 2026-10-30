@@ -8,7 +8,8 @@ export const buttonVariants = cva(
         primary:
           'bg-primary text-white shadow-sm hover:bg-primary-strong focus-visible:outline-primary',
         secondary: 'bg-primary-soft text-primary-strong hover:bg-[#e3dcfa]',
-        outline: 'border border-line-strong bg-surface text-ink hover:bg-canvas focus-visible:outline-primary',
+        outline:
+          'border border-line-strong bg-surface text-ink hover:bg-canvas focus-visible:outline-primary',
         ghost: 'text-ink-soft hover:bg-canvas hover:text-ink',
         danger: 'bg-danger-strong text-white hover:bg-[#7a202a]',
         'danger-ghost': 'text-danger-strong hover:bg-danger-soft',

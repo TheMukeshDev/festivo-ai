@@ -54,7 +54,7 @@ class FirebaseTokenVerifier:
         self._project_id = project_id
         self._client_email = client_email
         self._private_key = private_key
-        self._app = None
+        self._app: firebase_admin.App | None = None
         self._jwk_client = PyJWKClient(
             "https://www.googleapis.com/robot/v1/metadata/jwk/securetoken@system.gserviceaccount.com",
             cache_keys=True,
@@ -64,7 +64,9 @@ class FirebaseTokenVerifier:
         )
 
     @staticmethod
-    def _get_or_create_app(project_id: str, client_email: str, private_key: str):
+    def _get_or_create_app(
+        project_id: str, client_email: str, private_key: str
+    ) -> firebase_admin.App:
         app_name = f"festivo-{project_id}"
         try:
             return firebase_admin.get_app(app_name)
@@ -105,9 +107,12 @@ class FirebaseTokenVerifier:
                     self._private_key,
                 )
             if self._app is not None:
-                return firebase_auth.verify_id_token(token, app=self._app, check_revoked=True)
+                verified: dict[str, Any] = firebase_auth.verify_id_token(
+                    token, app=self._app, check_revoked=True
+                )
+                return verified
             signing_key = self._jwk_client.get_signing_key_from_jwt(token)
-            return jwt.decode(
+            decoded: dict[str, Any] = jwt.decode(
                 token,
                 signing_key.key,
                 algorithms=["RS256"],
@@ -115,6 +120,7 @@ class FirebaseTokenVerifier:
                 issuer=f"https://securetoken.google.com/{self._project_id}",
                 options={"require": ["exp", "iat", "sub", "aud", "iss"]},
             )
+            return decoded
         except firebase_auth.RevokedIdTokenError:
             raise AuthenticationError from None
         except firebase_auth.UserDisabledError:

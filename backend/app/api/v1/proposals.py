@@ -1,6 +1,6 @@
 """Authenticated planning proposal, approval, and rejection endpoints."""
 
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Query, Request, status
 
@@ -22,7 +22,7 @@ from app.services.planning_orchestration_service import PlanningOrchestrationSer
 
 router = APIRouter(prefix="/events/{event_id}/proposals", tags=["proposals"])
 
-_STANDARD_ERRORS = {
+_STANDARD_ERRORS: dict[int | str, dict[str, Any]] = {
     401: {"model": ErrorResponse},
     404: {"model": ErrorResponse},
     409: {"model": ErrorResponse},
@@ -32,7 +32,8 @@ _STANDARD_ERRORS = {
 
 
 def _service(request: Request) -> PlanningOrchestrationService:
-    return request.app.state.planning_orchestration_service
+    service: PlanningOrchestrationService = request.app.state.planning_orchestration_service
+    return service
 
 
 @router.post(
@@ -61,6 +62,7 @@ def list_proposals(
     event_id: str,
     request: Request,
     user: Annotated[AuthenticatedUser, Depends(get_current_user)],
+    *,
     status_filter: Annotated[ProposalStatus | None, Query(alias="status")] = None,
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
     offset: Annotated[int, Query(ge=0, le=1_000_000)] = 0,

@@ -187,7 +187,7 @@ def register_exception_handlers(app: FastAPI) -> None:
             status_code=exc.status_code,
             code=code,
             message=message,
-            headers=exc.headers,
+            headers=dict(exc.headers) if exc.headers is not None else None,
         )
 
     @app.exception_handler(Exception)

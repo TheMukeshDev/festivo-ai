@@ -1,6 +1,6 @@
 """Event budget and expense API endpoints."""
 
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Query, Request, status
 
@@ -22,7 +22,7 @@ from app.services.budget_service import BudgetService, BudgetView
 
 router = APIRouter(prefix="/events/{event_id}/budget", tags=["budgets"])
 
-_STANDARD_ERRORS = {
+_STANDARD_ERRORS: dict[int | str, dict[str, Any]] = {
     401: {"model": ErrorResponse},
     404: {"model": ErrorResponse},
     409: {"model": ErrorResponse},

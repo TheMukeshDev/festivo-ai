@@ -8,19 +8,19 @@ import { createAppQueryClient } from '@/app/query-client'
 import { routes } from '@/app/router'
 
 const authValue = vi.hoisted(() => ({
-    configured: false,
-    configurationMessage: 'Authentication is not configured.',
-    loading: false,
-    session: null,
-    user: null,
-    sessionExpired: false,
-    signIn: async () => undefined,
-    signInWithGoogle: async () => undefined,
-    signUp: async () => ({ needsEmailConfirmation: false }),
-    signOut: async () => undefined,
-    requestPasswordReset: async () => undefined,
-    updatePassword: async () => undefined,
-    clearSessionExpired: () => undefined,
+  configured: false,
+  configurationMessage: 'Authentication is not configured.',
+  loading: false,
+  session: null,
+  user: null,
+  sessionExpired: false,
+  signIn: async () => undefined,
+  signInWithGoogle: async () => undefined,
+  signUp: async () => ({ needsEmailConfirmation: false }),
+  signOut: async () => undefined,
+  requestPasswordReset: async () => undefined,
+  updatePassword: async () => undefined,
+  clearSessionExpired: () => undefined,
 }))
 
 vi.mock('@/features/auth/auth-provider', () => ({

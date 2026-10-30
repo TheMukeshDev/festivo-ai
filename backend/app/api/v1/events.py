@@ -1,6 +1,6 @@
 """Authenticated event creation and management API endpoints."""
 
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Query, Request, Response, status
 
@@ -12,11 +12,11 @@ from app.services.event_service import EventService
 
 router = APIRouter(prefix="/events", tags=["events"])
 
-_VALIDATION_RESPONSES = {
+_VALIDATION_RESPONSES: dict[int | str, dict[str, Any]] = {
     401: {"model": ErrorResponse},
     422: {"model": ErrorResponse},
 }
-_NOT_FOUND_RESPONSES = {
+_NOT_FOUND_RESPONSES: dict[int | str, dict[str, Any]] = {
     401: {"model": ErrorResponse},
     404: {"model": ErrorResponse},
     422: {"model": ErrorResponse},

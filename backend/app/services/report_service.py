@@ -67,6 +67,7 @@ class ReportService:
 
     def __init__(
         self,
+        *,
         event_service: EventService,
         budget_service: BudgetService,
         task_service: TaskService,
@@ -168,7 +169,7 @@ class ReportService:
             limit=MAX_REPORT_TASKS,
             offset=0,
         )
-        vendors, _ = self._vendor_service.list(
+        vendors, _ = self._vendor_service.list_vendors(
             owner_id,
             event_id,
             category=None,
@@ -201,7 +202,7 @@ class ReportService:
             return [_paragraph("No budget has been configured for this event.", styles["body"])]
         calculation = report.budget.calculation
         budget = report.budget.budget
-        rows = [
+        rows: list[tuple[str, object]] = [
             ("Total budget limit", _money(budget.total_limit, budget.currency)),
             (
                 "Reserve",
@@ -585,7 +586,7 @@ def _csv_rows(report: EventReportData) -> list[list[object]]:
             ]
         )
     for vendor in report.vendors[:MAX_REPORT_VENDORS]:
-        amount = vendor.quoted_cost or vendor.estimated_cost or vendor.price_min
+        vendor_amount = vendor.quoted_cost or vendor.estimated_cost or vendor.price_min
         rows.append(
             [
                 "vendor",
@@ -594,7 +595,7 @@ def _csv_rows(report: EventReportData) -> list[list[object]]:
                 vendor.category.value,
                 vendor.status.value,
                 vendor.availability or "",
-                amount if amount is not None else "",
+                vendor_amount if vendor_amount is not None else "",
                 vendor.currency,
                 "Recorded vendor data; booking is not verified by Festivo. " + (vendor.notes or ""),
             ]

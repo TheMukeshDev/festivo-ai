@@ -1,6 +1,6 @@
 """AI proposal generation endpoints and safe provider error mapping."""
 
-from typing import Annotated, Any
+from typing import Annotated, Any, NoReturn
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
@@ -23,7 +23,7 @@ from app.services.planning_orchestration_service import PlanningOrchestrationSer
 
 router = APIRouter(prefix="/events/{event_id}/ai-plan", tags=["ai-planning"])
 
-_STANDARD_ERRORS = {
+_STANDARD_ERRORS: dict[int | str, dict[str, Any]] = {
     401: {"model": ErrorResponse},
     404: {"model": ErrorResponse},
     422: {"model": ErrorResponse},
@@ -34,11 +34,15 @@ _STANDARD_ERRORS = {
 
 
 def _service(request: Request) -> PlanningOrchestrationService:
-    return request.app.state.planning_orchestration_service
+    service: PlanningOrchestrationService = request.app.state.planning_orchestration_service
+    return service
 
 
-def handle_ai_error(exc: Exception) -> None:
-    """Translate provider failures without exposing exception details."""
+def handle_ai_error(exc: Exception) -> NoReturn:
+    """Translate provider failures without exposing exception details.
+
+    Always raises, so callers never fall through to an unbound result.
+    """
     if isinstance(exc, AIConfigurationError):
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -91,7 +95,6 @@ def generate_proposal(
         )
     except Exception as exc:
         handle_ai_error(exc)
-        raise
     return ProposalResponse.from_proposal(proposal)
 
 

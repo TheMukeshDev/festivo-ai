@@ -377,6 +377,7 @@ function CompareContent({ eventId }: { eventId: string }) {
                     type="checkbox"
                     checked={isSelected}
                     onChange={() => toggleSelected(vendor.vendor_id)}
+                    aria-label={`Include ${vendor.name} in the comparison`}
                     className="mt-0.5 size-4 shrink-0 accent-primary"
                   />
                   <span className="min-w-0">

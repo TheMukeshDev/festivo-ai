@@ -28,6 +28,11 @@ class EventService:
         self._timezone = timezone
         self._clock = clock or utc_now
 
+    @property
+    def repository(self) -> EventRepository:
+        """Underlying event repository, used when wiring dependent services."""
+        return self._repository
+
     def create(self, owner_id: UUID, payload: EventCreate) -> Event:
         now = self._now()
         timezone = payload.timezone or self._timezone.key

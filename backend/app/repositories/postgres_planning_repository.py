@@ -1,5 +1,6 @@
 """PostgreSQL-backed timeline and task repository."""
 
+from collections.abc import Sequence
 from datetime import datetime
 from typing import Any
 from uuid import UUID
@@ -92,7 +93,7 @@ class PostgresPlanningRepository(PlanningRepository):
     def __init__(self, database: PostgresDatabase) -> None:
         self._database = database
 
-    def create_timeline(self, timeline: Timeline, tasks: list[Task]) -> Timeline:
+    def create_timeline(self, timeline: Timeline, tasks: Sequence[Task]) -> Timeline:
         with self._database.connection() as connection, connection.cursor() as cursor:
             try:
                 cursor.execute(
@@ -181,7 +182,7 @@ class PostgresPlanningRepository(PlanningRepository):
         self,
         owner_id: UUID,
         timeline: Timeline,
-        tasks: list[Task],
+        tasks: Sequence[Task],
         *,
         generated_at: datetime,
     ) -> tuple[Timeline, list[Task]]:

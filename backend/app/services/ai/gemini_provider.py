@@ -35,7 +35,8 @@ class GeminiProvider(AIProvider):
                 "LLM_MODEL must be a provider-supported model when LLM_ENABLED is true"
             )
         try:
-            from google import genai
+            # Deferred so the heavy SDK only loads when the LLM is actually configured.
+            from google import genai  # noqa: PLC0415
 
             self._genai = genai
             self._client = genai.Client(
@@ -60,8 +61,11 @@ class GeminiProvider(AIProvider):
         max_retries = int(self._settings.llm_max_retries)
         max_tokens = int(self._settings.llm_max_output_tokens)
         temperature = float(self._settings.llm_temperature)
+        if self._client is None:
+            raise AIConfigurationError("Gemini client is not initialized.")
 
-        for attempt in range(max_retries + 1):
+        attempt = 0
+        while True:
             try:
                 config: dict[str, Any] = {
                     "temperature": temperature,
@@ -89,6 +93,7 @@ class GeminiProvider(AIProvider):
                 if attempt >= max_retries:
                     raise
                 self._backoff(attempt)
+                attempt += 1
             except Exception as exc:
                 provider_error = self._classify_error(exc)
                 if isinstance(provider_error, (AIAuthenticationError, AIRateLimitError)):
@@ -96,7 +101,7 @@ class GeminiProvider(AIProvider):
                 if attempt >= max_retries:
                     raise provider_error from exc
                 self._backoff(attempt)
-        raise AIServiceError("Provider request failed")
+                attempt += 1
 
     @staticmethod
     def _parse_response(response: Any) -> dict[str, Any]:

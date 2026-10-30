@@ -90,7 +90,6 @@ export function SignInPage() {
             id="email"
             type="email"
             autoComplete="email"
-            autoFocus
             placeholder="you@example.com"
             aria-invalid={Boolean(errors.email)}
             aria-describedby={errors.email ? 'email-error' : undefined}
@@ -143,7 +142,9 @@ export function SignInPage() {
               // once the session is restored (no client-side navigation here).
               await auth.signInWithGoogle()
             } catch (error) {
-              setFormError(error instanceof Error ? error.message : 'Could not sign in with Google.')
+              setFormError(
+                error instanceof Error ? error.message : 'Could not sign in with Google.',
+              )
             }
           }}
         >

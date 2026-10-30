@@ -1,6 +1,6 @@
 """Authenticated PDF and CSV event report exports."""
 
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Request, Response
 
@@ -11,7 +11,7 @@ from app.services.report_service import ReportService
 
 router = APIRouter(prefix="/events/{event_id}/export", tags=["exports"])
 
-_EXPORT_ERRORS = {
+_EXPORT_ERRORS: dict[int | str, dict[str, Any]] = {
     401: {"model": ErrorResponse},
     404: {"model": ErrorResponse},
     500: {"model": ErrorResponse},
@@ -20,7 +20,8 @@ _EXPORT_ERRORS = {
 
 
 def _service(request: Request) -> ReportService:
-    return request.app.state.report_service
+    service: ReportService = request.app.state.report_service
+    return service
 
 
 def _download_headers(filename: str) -> dict[str, str]:

@@ -89,7 +89,6 @@ export function ForgotPasswordPage() {
             id="email"
             type="email"
             autoComplete="email"
-            autoFocus
             placeholder="you@example.com"
             aria-invalid={Boolean(errors.email)}
             aria-describedby={errors.email ? 'email-error' : undefined}

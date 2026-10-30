@@ -1,7 +1,7 @@
 """Planning timeline use cases."""
 
 from dataclasses import replace
-from datetime import timedelta
+from datetime import datetime, timedelta
 from uuid import UUID, uuid4
 
 from app.core.clock import Clock, coerce_utc, utc_now
@@ -149,7 +149,7 @@ class TimelineService:
             generated_at=now,
         )
 
-    def _build_tasks(self, event: Event, timeline: Timeline, now: object) -> list[Task]:
+    def _build_tasks(self, event: Event, timeline: Timeline, now: datetime) -> list[Task]:
         tasks: list[Task] = []
         for template_key, title, description, priority, offset in _TEMPLATE_TASKS:
             task = Task(
@@ -182,5 +182,5 @@ class TimelineService:
             raise ResourceNotFoundError(_EVENT_NOT_FOUND)
         return event
 
-    def _now(self):
+    def _now(self) -> datetime:
         return coerce_utc(self._clock())

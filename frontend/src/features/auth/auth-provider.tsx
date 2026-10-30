@@ -19,9 +19,17 @@ import { toast } from 'sonner'
 
 import { UNAUTHORIZED_EVENT } from '@/lib/api/client'
 import { setAccessTokenProvider } from '@/lib/api/token'
-import { auth as firebaseAuth, firebaseConfigurationError, firebaseReady } from '@/lib/firebase/client'
+import {
+  auth as firebaseAuth,
+  firebaseConfigurationError,
+  firebaseReady,
+} from '@/lib/firebase/client'
 import { env } from '@/lib/env'
-import { AuthContext, type AuthContextValue, type AuthUser } from '@/features/auth/auth-context'
+import {
+  AuthContext,
+  type AuthContextValue,
+  type AuthUser,
+} from '@/features/auth/auth-context'
 
 interface AuthProviderProps {
   children: ReactNode
@@ -32,7 +40,7 @@ function toAuthUser(user: User): AuthUser {
     id: user.uid,
     email: user.email,
     user_metadata: user.displayName ? { full_name: user.displayName } : {},
-    email_confirmed_at: user.emailVerified ? user.metadata.creationTime ?? null : null,
+    email_confirmed_at: user.emailVerified ? (user.metadata.creationTime ?? null) : null,
     created_at: user.metadata.creationTime ?? new Date(0).toISOString(),
     last_sign_in_at: user.metadata.lastSignInTime ?? null,
   }
@@ -155,7 +163,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }, [])
 
   const signIn = useCallback(async (email: string, password: string) => {
-    if (!firebaseAuth) throw new Error(firebaseConfigurationError ?? 'Authentication is unavailable.')
+    if (!firebaseAuth)
+      throw new Error(firebaseConfigurationError ?? 'Authentication is unavailable.')
     try {
       await signInWithEmailAndPassword(firebaseAuth, email.trim(), password)
     } catch (error) {
@@ -165,7 +174,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }, [])
 
   const signInWithGoogle = useCallback(async () => {
-    if (!firebaseAuth) throw new Error(firebaseConfigurationError ?? 'Authentication is unavailable.')
+    if (!firebaseAuth)
+      throw new Error(firebaseConfigurationError ?? 'Authentication is unavailable.')
     const provider = new GoogleAuthProvider()
     try {
       // Popup works reliably on desktop: the result comes back through the
@@ -186,7 +196,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }, [])
 
   const signUp = useCallback(async (email: string, password: string, fullName: string) => {
-    if (!firebaseAuth) throw new Error(firebaseConfigurationError ?? 'Authentication is unavailable.')
+    if (!firebaseAuth)
+      throw new Error(firebaseConfigurationError ?? 'Authentication is unavailable.')
     let result: Awaited<ReturnType<typeof createUserWithEmailAndPassword>>
     try {
       result = await createUserWithEmailAndPassword(firebaseAuth, email.trim(), password)
@@ -209,7 +220,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }, [])
 
   const requestPasswordReset = useCallback(async (email: string) => {
-    if (!firebaseAuth) throw new Error(firebaseConfigurationError ?? 'Authentication is unavailable.')
+    if (!firebaseAuth)
+      throw new Error(firebaseConfigurationError ?? 'Authentication is unavailable.')
     try {
       await sendPasswordResetEmail(firebaseAuth, email.trim(), {
         url: `${env.appUrl}/reset-password`,
@@ -221,7 +233,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }, [])
 
   const updatePassword = useCallback(async (password: string, actionCode?: string) => {
-    if (!firebaseAuth) throw new Error(firebaseConfigurationError ?? 'Authentication is unavailable.')
+    if (!firebaseAuth)
+      throw new Error(firebaseConfigurationError ?? 'Authentication is unavailable.')
     if (actionCode) {
       try {
         await confirmPasswordReset(firebaseAuth, actionCode, password)
@@ -230,7 +243,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
       }
       return
     }
-    if (!firebaseAuth.currentUser) throw new Error('Your reset session has expired. Request a new link.')
+    if (!firebaseAuth.currentUser)
+      throw new Error('Your reset session has expired. Request a new link.')
     try {
       await firebaseUpdatePassword(firebaseAuth.currentUser, password)
     } catch (error) {

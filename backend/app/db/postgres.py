@@ -1,7 +1,7 @@
 """Pooled psycopg connection boundary with safe failure translation."""
 
 from collections.abc import Iterator
-from contextlib import contextmanager
+from contextlib import contextmanager, suppress
 from contextvars import ContextVar
 from threading import Lock
 from typing import Any
@@ -47,10 +47,10 @@ class PostgresDatabase:
     def __init__(self, dsn: SecretStr, connect_timeout: int) -> None:
         self._dsn = dsn
         self._connect_timeout = connect_timeout
-        self._pool: ConnectionPool[dict[str, Any]] | None = None
+        self._pool: ConnectionPool[Connection[dict[str, Any]]] | None = None
         self._pool_lock = Lock()
 
-    def _get_pool(self) -> ConnectionPool[dict[str, Any]]:
+    def _get_pool(self) -> ConnectionPool[Connection[dict[str, Any]]]:
         pool = self._pool
         if pool is not None:
             return pool
@@ -134,14 +134,12 @@ class PostgresDatabase:
             elif finished:
                 self._get_pool().putconn(conn)
             else:
-                # Never return a broken connection to the pool, and never let
-                # cleanup hide the original error.
-                try:
+                # Never let cleanup hide the original error. psycopg_pool 3.x
+                # discards a broken connection on putconn itself (rollback
+                # failure or UNKNOWN status), so a plain return is safe.
+                with suppress(psycopg.Error):
                     conn.rollback()
-                except psycopg.Error:
-                    self._get_pool().putconn(conn, close=True)
-                else:
-                    self._get_pool().putconn(conn)
+                self._get_pool().putconn(conn)
 
     def check_connection(self) -> None:
         """Verify that PostgreSQL accepts a pooled connection."""

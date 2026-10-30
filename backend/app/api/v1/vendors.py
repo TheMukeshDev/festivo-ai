@@ -1,6 +1,6 @@
 """Authenticated vendor API endpoints."""
 
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Query, Request, Response, status
 
@@ -20,7 +20,7 @@ from app.services.vendor_service import VendorService
 
 router = APIRouter(prefix="/events/{event_id}/vendors", tags=["vendors"])
 
-_STANDARD_ERRORS = {
+_STANDARD_ERRORS: dict[int | str, dict[str, Any]] = {
     401: {"model": ErrorResponse},
     404: {"model": ErrorResponse},
     409: {"model": ErrorResponse},
@@ -30,7 +30,8 @@ _STANDARD_ERRORS = {
 
 
 def _service(request: Request) -> VendorService:
-    return request.app.state.vendor_service
+    service: VendorService = request.app.state.vendor_service
+    return service
 
 
 @router.post(
@@ -45,7 +46,7 @@ def create_vendor(
     payload: VendorCreate,
     request: Request,
     user: Annotated[AuthenticatedUser, Depends(get_current_user)],
-):
+) -> VendorResponse:
     return VendorResponse.from_vendor(_service(request).create(user.user_id, event_id, payload))
 
 
@@ -59,6 +60,7 @@ def list_vendors(
     event_id: str,
     request: Request,
     user: Annotated[AuthenticatedUser, Depends(get_current_user)],
+    *,
     category: Annotated[VendorCategory | None, Query()] = None,
     status: Annotated[VendorStatus | None, Query()] = None,
     min_price: Annotated[float | None, Query(ge=0)] = None,
@@ -66,8 +68,8 @@ def list_vendors(
     name: Annotated[str | None, Query(max_length=200)] = None,
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
     offset: Annotated[int, Query(ge=0, le=1_000_000)] = 0,
-):
-    vendors, total = _service(request).list(
+) -> VendorListResponse:
+    vendors, total = _service(request).list_vendors(
         user.user_id,
         event_id,
         category=category,
@@ -97,7 +99,7 @@ def get_vendor(
     vendor_id: str,
     request: Request,
     user: Annotated[AuthenticatedUser, Depends(get_current_user)],
-):
+) -> VendorResponse:
     return VendorResponse.from_vendor(_service(request).get(user.user_id, event_id, vendor_id))
 
 
@@ -113,7 +115,7 @@ def update_vendor(
     payload: VendorUpdate,
     request: Request,
     user: Annotated[AuthenticatedUser, Depends(get_current_user)],
-):
+) -> VendorResponse:
     return VendorResponse.from_vendor(
         _service(request).update(user.user_id, event_id, vendor_id, payload)
     )
@@ -130,7 +132,7 @@ def delete_vendor(
     vendor_id: str,
     request: Request,
     user: Annotated[AuthenticatedUser, Depends(get_current_user)],
-):
+) -> Response:
     _service(request).delete(user.user_id, event_id, vendor_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
@@ -146,6 +148,6 @@ def compare_vendors(
     payload: VendorCompareRequest,
     request: Request,
     user: Annotated[AuthenticatedUser, Depends(get_current_user)],
-):
+) -> VendorCompareResponse:
     result = _service(request).compare(user.user_id, event_id, payload)
     return VendorCompareResponse(**result)

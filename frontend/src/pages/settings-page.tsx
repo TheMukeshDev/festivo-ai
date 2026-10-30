@@ -160,8 +160,9 @@ export function SettingsPage() {
             </CardHeader>
             <CardContent className="space-y-3 text-sm">
               <p className="leading-6 text-ink-soft">
-                Festivo stores events, budgets, expenses, timelines, tasks, vendor shortlists,
-                and AI proposals. PDF and CSV exports download straight from this workspace.
+                Festivo stores events, budgets, expenses, timelines, tasks, vendor
+                shortlists, and AI proposals. PDF and CSV exports download straight from
+                this workspace.
               </p>
               <Button asChild variant="outline" size="sm">
                 <Link to="/app/events">Manage events</Link>

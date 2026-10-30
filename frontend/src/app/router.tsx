@@ -16,24 +16,68 @@ const withSuspense = (Component: React.LazyExoticComponent<React.ComponentType>)
   </Suspense>
 )
 
-const AiPlanPage = lazy(() => import('@/pages/events/ai-plan-page').then(m => ({ default: m.AiPlanPage })))
-const AuthCallbackPage = lazy(() => import('@/pages/auth/auth-callback-page').then(m => ({ default: m.AuthCallbackPage })))
-const BudgetPage = lazy(() => import('@/pages/events/budget-page').then(m => ({ default: m.BudgetPage })))
-const DashboardPage = lazy(() => import('@/pages/dashboard-page').then(m => ({ default: m.DashboardPage })))
-const EventCreatePage = lazy(() => import('@/pages/events/event-form-page').then(m => ({ default: m.EventCreatePage })))
-const EventEditPage = lazy(() => import('@/pages/events/event-form-page').then(m => ({ default: m.EventEditPage })))
-const EventOverviewPage = lazy(() => import('@/pages/events/event-overview-page').then(m => ({ default: m.EventOverviewPage })))
-const EventsListPage = lazy(() => import('@/pages/events/events-list-page').then(m => ({ default: m.EventsListPage })))
-const ExportsPage = lazy(() => import('@/pages/events/exports-page').then(m => ({ default: m.ExportsPage })))
-const ForgotPasswordPage = lazy(() => import('@/pages/auth/forgot-password-page').then(m => ({ default: m.ForgotPasswordPage })))
-const ProposalsPage = lazy(() => import('@/pages/events/proposals-page').then(m => ({ default: m.ProposalsPage })))
-const ResetPasswordPage = lazy(() => import('@/pages/auth/reset-password-page').then(m => ({ default: m.ResetPasswordPage })))
-const SettingsPage = lazy(() => import('@/pages/settings-page').then(m => ({ default: m.SettingsPage })))
-const SignInPage = lazy(() => import('@/pages/auth/sign-in-page').then(m => ({ default: m.SignInPage })))
-const SignUpPage = lazy(() => import('@/pages/auth/sign-up-page').then(m => ({ default: m.SignUpPage })))
-const TimelinePage = lazy(() => import('@/pages/events/timeline-page').then(m => ({ default: m.TimelinePage })))
-const VendorComparePage = lazy(() => import('@/pages/events/vendor-compare-page').then(m => ({ default: m.VendorComparePage })))
-const VendorsPage = lazy(() => import('@/pages/events/vendors-page').then(m => ({ default: m.VendorsPage })))
+const AiPlanPage = lazy(() =>
+  import('@/pages/events/ai-plan-page').then((m) => ({ default: m.AiPlanPage })),
+)
+const AuthCallbackPage = lazy(() =>
+  import('@/pages/auth/auth-callback-page').then((m) => ({ default: m.AuthCallbackPage })),
+)
+const BudgetPage = lazy(() =>
+  import('@/pages/events/budget-page').then((m) => ({ default: m.BudgetPage })),
+)
+const DashboardPage = lazy(() =>
+  import('@/pages/dashboard-page').then((m) => ({ default: m.DashboardPage })),
+)
+const EventCreatePage = lazy(() =>
+  import('@/pages/events/event-form-page').then((m) => ({ default: m.EventCreatePage })),
+)
+const EventEditPage = lazy(() =>
+  import('@/pages/events/event-form-page').then((m) => ({ default: m.EventEditPage })),
+)
+const EventOverviewPage = lazy(() =>
+  import('@/pages/events/event-overview-page').then((m) => ({
+    default: m.EventOverviewPage,
+  })),
+)
+const EventsListPage = lazy(() =>
+  import('@/pages/events/events-list-page').then((m) => ({ default: m.EventsListPage })),
+)
+const ExportsPage = lazy(() =>
+  import('@/pages/events/exports-page').then((m) => ({ default: m.ExportsPage })),
+)
+const ForgotPasswordPage = lazy(() =>
+  import('@/pages/auth/forgot-password-page').then((m) => ({
+    default: m.ForgotPasswordPage,
+  })),
+)
+const ProposalsPage = lazy(() =>
+  import('@/pages/events/proposals-page').then((m) => ({ default: m.ProposalsPage })),
+)
+const ResetPasswordPage = lazy(() =>
+  import('@/pages/auth/reset-password-page').then((m) => ({
+    default: m.ResetPasswordPage,
+  })),
+)
+const SettingsPage = lazy(() =>
+  import('@/pages/settings-page').then((m) => ({ default: m.SettingsPage })),
+)
+const SignInPage = lazy(() =>
+  import('@/pages/auth/sign-in-page').then((m) => ({ default: m.SignInPage })),
+)
+const SignUpPage = lazy(() =>
+  import('@/pages/auth/sign-up-page').then((m) => ({ default: m.SignUpPage })),
+)
+const TimelinePage = lazy(() =>
+  import('@/pages/events/timeline-page').then((m) => ({ default: m.TimelinePage })),
+)
+const VendorComparePage = lazy(() =>
+  import('@/pages/events/vendor-compare-page').then((m) => ({
+    default: m.VendorComparePage,
+  })),
+)
+const VendorsPage = lazy(() =>
+  import('@/pages/events/vendors-page').then((m) => ({ default: m.VendorsPage })),
+)
 
 export const routes: RouteObject[] = [
   {
@@ -41,34 +85,28 @@ export const routes: RouteObject[] = [
     element: <PublicLayout />,
     children: [
       { index: true, element: <LandingPage /> },
-      { path: 'privacy', element: withSuspense(lazy(() => Promise.resolve({ default: PrivacyPolicyPage }))) },
-      { path: 'terms', element: withSuspense(lazy(() => Promise.resolve({ default: TermsPage }))) },
+      {
+        path: 'privacy',
+        element: withSuspense(lazy(() => Promise.resolve({ default: PrivacyPolicyPage }))),
+      },
+      {
+        path: 'terms',
+        element: withSuspense(lazy(() => Promise.resolve({ default: TermsPage }))),
+      },
       { path: '*', element: <NotFoundPage /> },
     ],
   },
   {
     path: '/sign-in',
-    element: (
-      <PublicOnlyRoute>
-        {withSuspense(SignInPage)}
-      </PublicOnlyRoute>
-    ),
+    element: <PublicOnlyRoute>{withSuspense(SignInPage)}</PublicOnlyRoute>,
   },
   {
     path: '/sign-up',
-    element: (
-      <PublicOnlyRoute>
-        {withSuspense(SignUpPage)}
-      </PublicOnlyRoute>
-    ),
+    element: <PublicOnlyRoute>{withSuspense(SignUpPage)}</PublicOnlyRoute>,
   },
   {
     path: '/forgot-password',
-    element: (
-      <PublicOnlyRoute>
-        {withSuspense(ForgotPasswordPage)}
-      </PublicOnlyRoute>
-    ),
+    element: <PublicOnlyRoute>{withSuspense(ForgotPasswordPage)}</PublicOnlyRoute>,
   },
   { path: '/reset-password', element: withSuspense(ResetPasswordPage) },
   { path: '/auth/callback', element: withSuspense(AuthCallbackPage) },

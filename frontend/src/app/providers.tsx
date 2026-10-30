@@ -5,9 +5,9 @@ import { createAppQueryClient } from '@/app/query-client'
 import { AuthContext, type AuthContextValue } from '@/features/auth/auth-context'
 import type { QueryClient } from '@tanstack/react-query'
 
-const Toaster = lazy(() => import('sonner').then(m => ({ default: m.Toaster })))
+const Toaster = lazy(() => import('sonner').then((m) => ({ default: m.Toaster })))
 const AuthProvider = lazy(() =>
-  import('@/features/auth/auth-provider').then(m => ({ default: m.AuthProvider })),
+  import('@/features/auth/auth-provider').then((m) => ({ default: m.AuthProvider })),
 )
 
 const authLoadingValue: AuthContextValue = {
@@ -70,7 +70,11 @@ function AuthBoundary({ children }: { children: ReactNode }) {
   }
 
   return (
-    <Suspense fallback={<AuthContext.Provider value={authLoadingValue}>{children}</AuthContext.Provider>}>
+    <Suspense
+      fallback={
+        <AuthContext.Provider value={authLoadingValue}>{children}</AuthContext.Provider>
+      }
+    >
       <AuthProvider>{children}</AuthProvider>
     </Suspense>
   )

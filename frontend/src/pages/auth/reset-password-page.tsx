@@ -15,7 +15,10 @@ import { resetPasswordSchema, type ResetPasswordValues } from '@/lib/validation/
 export function ResetPasswordPage() {
   const auth = useAuth()
   const navigate = useNavigate()
-  const actionCode = useMemo(() => new URLSearchParams(window.location.search).get('oobCode'), [])
+  const actionCode = useMemo(
+    () => new URLSearchParams(window.location.search).get('oobCode'),
+    [],
+  )
   const [formError, setFormError] = useState<string | null>(null)
   const {
     register,
@@ -79,7 +82,6 @@ export function ResetPasswordPage() {
           <PasswordInput
             id="password"
             autoComplete="new-password"
-            autoFocus
             placeholder="New password"
             aria-invalid={Boolean(errors.password)}
             aria-describedby={errors.password ? 'password-error' : undefined}

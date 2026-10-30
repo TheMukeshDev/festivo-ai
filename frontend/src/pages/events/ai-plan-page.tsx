@@ -86,11 +86,12 @@ function parsePreferences(value: string): Record<string, unknown> {
 }
 
 function normalizePlanResponse(response: AiPlanResponse | ProposalRecord): AiPlanResponse {
-  const candidate = (('ai_plan' in response && response.ai_plan ? response.ai_plan : response) as
-    AiPlanResponse & {
+  const candidate = (
+    'ai_plan' in response && response.ai_plan ? response.ai_plan : response
+  ) as AiPlanResponse & {
     created_at?: string
     proposal_type?: string
-  })
+  }
 
   return {
     event_id: candidate.event_id,
@@ -104,7 +105,8 @@ function normalizePlanResponse(response: AiPlanResponse | ProposalRecord): AiPla
     risks_and_constraints: candidate.risks_and_constraints ?? [],
     assumptions: candidate.assumptions ?? [],
     next_steps: candidate.next_steps ?? [],
-    generated_at: candidate.generated_at ?? candidate.created_at ?? new Date().toISOString(),
+    generated_at:
+      candidate.generated_at ?? candidate.created_at ?? new Date().toISOString(),
     model_used: candidate.model_used ?? candidate.proposal_type ?? 'Gemini',
   }
 }
@@ -621,8 +623,8 @@ function AiPlanContent({ eventId }: { eventId: string }) {
               <div className="min-w-0">
                 <p className="text-sm font-semibold text-ink">Ask your planning copilot</p>
                 <p className="mt-1 text-xs leading-5 text-ink-soft">
-                  Ask follow-up questions about the budget, timeline, vendors, or priorities.
-                  Every answer creates a fresh draft for you to review.
+                  Ask follow-up questions about the budget, timeline, vendors, or
+                  priorities. Every answer creates a fresh draft for you to review.
                 </p>
               </div>
             </div>

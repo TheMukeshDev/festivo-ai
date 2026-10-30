@@ -10,7 +10,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.core.config import Settings
-from app.main import create_app
+from app.main import ServiceOverrides, create_app
 from tests.conftest import FIXED_NOW, MutableClock
 
 EventPayloadFactory = Callable[..., dict[str, Any]]
@@ -679,7 +679,10 @@ def test_separate_application_instances_have_isolated_event_storage(
     from tests.conftest import PermissiveTokenVerifier
 
     with TestClient(
-        create_app(make_settings(), auth_verifier=PermissiveTokenVerifier())
+        create_app(
+            make_settings(),
+            services=ServiceOverrides(auth_verifier=PermissiveTokenVerifier()),
+        )
     ) as other_client:
         other_client.headers.update({"Authorization": "Bearer test-token"})
         response = other_client.get("/api/v1/events")

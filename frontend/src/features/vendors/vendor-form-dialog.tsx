@@ -25,11 +25,7 @@ import {
 } from '@/components/ui/select'
 import { ApiError } from '@/lib/api/errors'
 import { vendorsApi } from '@/lib/api/queries'
-import {
-  VENDOR_CATEGORIES,
-  VENDOR_STATUSES,
-  vendorStatusLabel,
-} from '@/lib/labels'
+import { VENDOR_CATEGORIES, VENDOR_STATUSES, vendorStatusLabel } from '@/lib/labels'
 import {
   emptyVendorForm,
   vendorFormSchema,
@@ -230,7 +226,6 @@ export function VendorFormDialog({
               >
                 <Input
                   id="vendor_name"
-                  autoFocus
                   placeholder="The Courtyard"
                   aria-invalid={Boolean(errors.name)}
                   {...register('name')}

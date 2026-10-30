@@ -52,3 +52,18 @@ def test_vendor_crud_and_compare(client: TestClient, event_payload):
     assert r7.status_code == 200
     res = r7.json()
     assert "criteria" in res and "items" in res
+
+
+def test_vendor_delete_removes_the_vendor(client: TestClient, event_payload):
+    client.headers.update({"Authorization": "Bearer test-token"})
+    event_id = create_event(client, event_payload)
+    created = client.post(
+        f"/api/v1/events/{event_id}/vendors",
+        json={"name": "Temporary Vendor", "category": "venue"},
+    )
+    assert created.status_code == 201
+    vendor_id = created.json()["vendor_id"]
+
+    deleted = client.delete(f"/api/v1/events/{event_id}/vendors/{vendor_id}")
+    assert deleted.status_code == 204
+    assert client.get(f"/api/v1/events/{event_id}/vendors/{vendor_id}").status_code == 404

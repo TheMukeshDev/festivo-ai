@@ -188,7 +188,6 @@ function TaskDialog({
           <FormField id="task_title" label="Task" error={errors.title?.message} required>
             <Input
               id="task_title"
-              autoFocus
               placeholder="Confirm the catering headcount"
               aria-invalid={Boolean(errors.title)}
               {...register('title')}

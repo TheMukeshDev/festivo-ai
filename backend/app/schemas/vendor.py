@@ -4,6 +4,7 @@ import re
 from datetime import datetime
 from decimal import Decimal
 from typing import Annotated, Self
+from urllib.parse import urlsplit
 
 from pydantic import (
     AfterValidator,
@@ -87,7 +88,7 @@ def _validate_email(value: str) -> str:
 
 def _validate_url(value: str) -> str:
     candidate = value.strip()
-    parsed = __import__("urllib.parse").urlsplit(candidate)
+    parsed = urlsplit(candidate)
     if parsed.scheme not in {"http", "https"} or not parsed.hostname:
         raise ValueError("Website URL must be a valid http(s) URL.")
     return candidate

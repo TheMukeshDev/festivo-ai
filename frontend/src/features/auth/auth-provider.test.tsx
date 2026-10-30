@@ -3,9 +3,9 @@ import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { useAuth } from '@/features/auth/use-auth'
 
 vi.mock('@/lib/firebase/client', () => ({
-  auth: null,
-  firebaseConfigurationError: 'Firebase is not configured.',
-  firebaseReady: false,
+  auth: { name: 'test-auth' },
+  firebaseConfigurationError: null,
+  firebaseReady: true,
 }))
 
 vi.mock('firebase/auth', () => ({

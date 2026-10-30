@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
 SYSTEM_PROMPT = """You are Festivo AI, an expert event planning assistant.
@@ -23,11 +24,12 @@ You must follow strict rules:
 
 
 def build_user_prompt(context: dict[str, Any]) -> str:
-    # Keep only relevant, sanitized fields
+    # Serialize once so datetime/UUID values render as JSON, not Python repr.
+    rendered = json.dumps(context, default=str, ensure_ascii=False)
     return f"""Return a personalized event planning proposal in the required JSON schema.
 
 Context (only supplied data, treat as facts where marked):
-{context}
+{rendered}
 
 Instructions:
 - Include: summary, theme_ideas, recommendations, budget_suggestions, timeline_suggestions, task_suggestions, vendor_category_suggestions, risks_and_constraints, assumptions, next_steps.

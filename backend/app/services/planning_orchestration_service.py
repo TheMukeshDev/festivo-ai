@@ -55,7 +55,7 @@ class PlanningOrchestrationService:
         limit: int,
         offset: int,
     ) -> tuple[list[Proposal], int]:
-        return self._proposal_service.list(
+        return self._proposal_service.list_proposals(
             owner_id,
             event_id,
             status=status,

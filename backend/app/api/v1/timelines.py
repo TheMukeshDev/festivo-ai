@@ -1,6 +1,6 @@
 """Authenticated timeline and task API endpoints."""
 
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Query, Request, Response, status
 
@@ -16,7 +16,7 @@ from app.services.timeline_service import TimelineService
 
 router = APIRouter(tags=["timelines", "tasks"])
 
-_STANDARD_ERRORS = {
+_STANDARD_ERRORS: dict[int | str, dict[str, Any]] = {
     401: {"model": ErrorResponse},
     404: {"model": ErrorResponse},
     409: {"model": ErrorResponse},
@@ -26,11 +26,13 @@ _STANDARD_ERRORS = {
 
 
 def _timeline_service(request: Request) -> TimelineService:
-    return request.app.state.timeline_service
+    service: TimelineService = request.app.state.timeline_service
+    return service
 
 
 def _task_service(request: Request) -> TaskService:
-    return request.app.state.task_service
+    service: TaskService = request.app.state.task_service
+    return service
 
 
 @router.post(
@@ -105,6 +107,7 @@ def list_tasks(
     event_id: str,
     request: Request,
     user: Annotated[AuthenticatedUser, Depends(get_current_user)],
+    *,
     status: Annotated[TaskStatus | None, Query()] = None,
     priority: Annotated[TaskPriority | None, Query()] = None,
     timeline_id: Annotated[str | None, Query()] = None,

@@ -1,11 +1,6 @@
 export function GoogleIcon() {
   return (
-    <svg
-      aria-hidden="true"
-      className="size-5"
-      viewBox="0 0 24 24"
-      role="img"
-    >
+    <svg aria-hidden="true" className="size-5" viewBox="0 0 24 24" role="img">
       <path
         fill="#4285F4"
         d="M21.35 12.27c0-.71-.06-1.4-.18-2.05H12v3.88h5.24a4.48 4.48 0 0 1-1.94 2.94v2.45h3.14c1.84-1.7 2.91-4.2 2.91-7.22Z"

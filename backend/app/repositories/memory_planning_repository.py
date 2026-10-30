@@ -1,6 +1,7 @@
 """Thread-safe in-memory timeline and task repository."""
 
 import copy
+from collections.abc import Sequence
 from dataclasses import replace
 from datetime import datetime
 from threading import RLock
@@ -25,7 +26,7 @@ class InMemoryPlanningRepository(PlanningRepository):
         self._tasks: dict[UUID, Task] = {}
         self._lock = RLock()
 
-    def create_timeline(self, timeline: Timeline, tasks: list[Task]) -> Timeline:
+    def create_timeline(self, timeline: Timeline, tasks: Sequence[Task]) -> Timeline:
         with self._lock:
             if timeline.event_id in self._timeline_by_event:
                 raise ResourceConflictError(_TIMELINE_CONFLICT)
@@ -59,7 +60,7 @@ class InMemoryPlanningRepository(PlanningRepository):
         self,
         owner_id: UUID,
         timeline: Timeline,
-        tasks: list[Task],
+        tasks: Sequence[Task],
         *,
         generated_at: datetime,
     ) -> tuple[Timeline, list[Task]]:

@@ -12,7 +12,7 @@ from fastapi.testclient import TestClient
 
 from app.core.auth import AuthenticatedUser, TokenVerifier
 from app.core.config import Settings
-from app.main import create_app
+from app.main import ServiceOverrides, create_app
 from app.repositories.event_repository import InMemoryEventRepository
 from app.repositories.memory_budget_repository import InMemoryBudgetRepository
 from app.repositories.memory_planning_repository import InMemoryPlanningRepository
@@ -197,11 +197,13 @@ def app(
 ) -> FastAPI:
     return create_app(
         make_settings(),
-        event_service,
-        budget_service,
-        timeline_service,
-        task_service,
-        auth_verifier=auth_verifier,
+        services=ServiceOverrides(
+            event=event_service,
+            budget=budget_service,
+            timeline=timeline_service,
+            task=task_service,
+            auth_verifier=auth_verifier,
+        ),
     )
 
 

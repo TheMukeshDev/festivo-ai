@@ -35,7 +35,7 @@ dev = [
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-ra --strict-markers --cov=app --cov-report=term-missing --cov-report=xml --cov-fail-under=70"
+addopts = "-ra --strict-markers --cov=app --cov-report=term-missing --cov-report=xml --cov-fail-under=100"
 pythonpath = ["."]
 asyncio_mode = "auto"
 markers = [
@@ -80,17 +80,19 @@ known-first-party = ["app", "tests"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["S101", "S105", "S106", "PLR2004", "ARG001", "ARG002", "PLR0913", "PLR0917", "PLR0912", "RET504", "RET505", "DTZ001", "PLC0415"]
+# S608: parameterized SQL; table/column identifiers can never be user-supplied.
 "app/repositories/postgres_event_repository.py" = ["S608"]
 "app/repositories/postgres_budget_repository.py" = ["S608"]
 "app/repositories/postgres_planning_repository.py" = ["S608"]
 "app/repositories/postgres_proposal_repository.py" = ["S608"]
 "app/repositories/postgres_vendor_repository.py" = ["S608"]
-"app/main.py" = ["PLR0913", "PLR0912", "PLR0915", "PLR0917"]
-"app/services/*" = ["PLR0913", "PLR0912", "PLR0915", "PLC0415", "PLR0917", "PLR0911"]
-"app/services/ai/*" = ["PLR0913", "PLC0415", "PLR0917"]
-"app/api/*" = ["PLR0913", "PLR0912", "PLR0917"]
+# PLR0913 is the only structural exception in app/: DI-rich wiring is intentional,
+# and every signature was made keyword-only so positional counts stay small (PLR0917 clean).
+"app/services/*" = ["PLR0913"]
+"app/services/ai/*" = ["PLR0913"]
+"app/api/*" = ["PLR0913"]
 "scripts/*" = ["S101", "T201"]
-"app/repositories/*" = ["PLR0913", "PLR0912"]
+"app/repositories/*" = ["PLR0913"]
 
 [tool.ruff.format]
 quote-style = "double"

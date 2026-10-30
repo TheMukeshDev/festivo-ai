@@ -102,7 +102,6 @@ export function SignUpPage() {
           <Input
             id="fullName"
             autoComplete="name"
-            autoFocus
             placeholder="Aarav Sharma"
             aria-invalid={Boolean(errors.fullName)}
             aria-describedby={errors.fullName ? 'fullName-error' : undefined}
@@ -180,9 +179,7 @@ export function SignUpPage() {
               await auth.signInWithGoogle()
             } catch (error) {
               setFormError(
-                error instanceof Error
-                  ? error.message
-                  : 'Could not continue with Google.',
+                error instanceof Error ? error.message : 'Could not continue with Google.',
               )
             }
           }}

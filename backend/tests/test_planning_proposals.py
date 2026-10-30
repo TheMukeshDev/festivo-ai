@@ -13,7 +13,7 @@ from fastapi.testclient import TestClient
 
 from app.core.auth import AuthenticatedUser, TokenVerifier
 from app.core.config import Settings
-from app.main import create_app
+from app.main import ServiceOverrides, create_app
 from app.repositories.event_repository import InMemoryEventRepository
 from app.repositories.memory_proposal_repository import InMemoryProposalRepository
 from app.repositories.memory_vendor_repository import InMemoryVendorRepository
@@ -124,12 +124,12 @@ def proposal_service(
     clock: MutableClock,
 ) -> ProposalService:
     return ProposalService(
-        proposal_repository,
-        event_service,
-        budget_service,
-        task_service,
-        vendor_service,
-        clock,
+        proposal_repository=proposal_repository,
+        event_service=event_service,
+        budget_service=budget_service,
+        task_service=task_service,
+        vendor_service=vendor_service,
+        clock=clock,
         ttl=timedelta(days=7),
     )
 
@@ -167,25 +167,27 @@ def planning_app(
 ) -> FastAPI:
     orchestration = PlanningOrchestrationService(proposal_service, ai_planning_service)
     report_service = ReportService(
-        event_service,
-        budget_service,
-        task_service,
-        vendor_service,
-        timeline_service,
-        proposal_service,
+        event_service=event_service,
+        budget_service=budget_service,
+        task_service=task_service,
+        vendor_service=vendor_service,
+        timeline_service=timeline_service,
+        proposal_service=proposal_service,
     )
     return create_app(
         make_settings(),
-        event_service=event_service,
-        budget_service=budget_service,
-        timeline_service=timeline_service,
-        task_service=task_service,
-        vendor_service=vendor_service,
-        auth_verifier=MultiUserVerifier(UUID("00000000-0000-0000-0000-000000000001")),
-        proposal_service=proposal_service,
-        ai_planning_service=ai_planning_service,
-        orchestration_service=orchestration,
-        report_service=report_service,
+        services=ServiceOverrides(
+            event=event_service,
+            budget=budget_service,
+            timeline=timeline_service,
+            task=task_service,
+            vendor=vendor_service,
+            auth_verifier=MultiUserVerifier(UUID("00000000-0000-0000-0000-000000000001")),
+            proposal=proposal_service,
+            ai_planning=ai_planning_service,
+            orchestration=orchestration,
+            report=report_service,
+        ),
     )
 
 
@@ -500,3 +502,236 @@ def test_expired_proposals_cannot_be_approved(
     )
     assert fetched.status.value == "expired"
     assert _task_total(planning_client, event["event_id"]) == 0
+
+
+def test_ai_plan_routes_generate_refine_and_report_status(
+    planning_client: TestClient,
+    event_payload: EventPayloadFactory,
+) -> None:
+    event = _create_event(planning_client, event_payload)
+    body = {
+        "preferences": {"style": "minimal"},
+        "focus_areas": ["budget", "guest list"],
+        "additional_notes": "Keep the celebration under 80 guests.",
+        "conversation": [{"role": "user", "content": "Morning ceremony preferred."}],
+    }
+
+    created = planning_client.post(f"/api/v1/events/{event['event_id']}/ai-plan", json=body)
+    assert created.status_code == 201, created.text
+    assert created.json()["status"] == "pending"
+
+    refined = planning_client.post(f"/api/v1/events/{event['event_id']}/ai-plan/refine", json=body)
+    assert refined.status_code == 201, refined.text
+
+    status_response = planning_client.get(f"/api/v1/events/{event['event_id']}/ai-plan/status")
+    assert status_response.status_code == 200, status_response.text
+    status_body = status_response.json()
+    assert status_body["event_id"] == event["event_id"]
+    assert status_body["provider"] == "gemini"
+    assert status_body["enabled"] is False
+
+
+def test_exports_render_budget_expenses_tasks_and_vendors(
+    planning_client: TestClient,
+    event_payload: EventPayloadFactory,
+) -> None:
+    event = _create_event(planning_client, event_payload)
+    event_id = event["event_id"]
+    _create_budget(planning_client, event_id)
+
+    expense = planning_client.post(
+        f"/api/v1/events/{event_id}/budget/expenses",
+        json={
+            "expected_version": 1,
+            "category": "Catering and Refreshments",
+            "name": "Dinner service",
+            "amount": "180000.00",
+            "amount_status": "quoted",
+            "notes": "Venue catering proposal.",
+        },
+    )
+    assert expense.status_code == 201, expense.text
+
+    task = planning_client.post(
+        f"/api/v1/events/{event_id}/tasks",
+        json={"title": "Send invitations", "priority": "high"},
+    )
+    assert task.status_code == 201, task.text
+
+    booked = planning_client.post(
+        f"/api/v1/events/{event_id}/vendors",
+        json={
+            "name": "Grand Palace Hall",
+            "category": "venue",
+            "quoted_cost": "450000.00",
+            "currency": "INR",
+            "status": "booked",
+        },
+    )
+    assert booked.status_code == 201, booked.text
+    shortlisted = planning_client.post(
+        f"/api/v1/events/{event_id}/vendors",
+        json={
+            "name": "Sunrise Caterers",
+            "category": "catering",
+            "price_min": "120000.00",
+            "price_max": "200000.00",
+            "currency": "INR",
+        },
+    )
+    assert shortlisted.status_code == 201, shortlisted.text
+
+    proposal = _generate(planning_client, event_id)
+    approved = planning_client.post(
+        f"/api/v1/events/{event_id}/proposals/{proposal['proposal_id']}/approve",
+        json={},
+    )
+    assert approved.status_code == 200, approved.text
+
+    pdf = planning_client.get(f"/api/v1/events/{event_id}/export/pdf")
+    assert pdf.status_code == 200, pdf.text
+    assert pdf.content.startswith(b"%PDF")
+
+    csv_response = planning_client.get(f"/api/v1/events/{event_id}/export/csv")
+    assert csv_response.status_code == 200, csv_response.text
+    rows = list(csv.reader(io.StringIO(csv_response.text)))
+    sections = {row[0] for row in rows if row}
+    assert {"budget", "expense", "task", "vendor", "recommendation"} <= sections
+
+
+def test_exports_degrade_gracefully_without_optional_sections(
+    planning_client: TestClient,
+    event_payload: EventPayloadFactory,
+) -> None:
+    event = _create_event(planning_client, event_payload)
+    event_id = event["event_id"]
+
+    pdf = planning_client.get(f"/api/v1/events/{event_id}/export/pdf")
+    assert pdf.status_code == 200, pdf.text
+    assert pdf.content.startswith(b"%PDF")
+
+    csv_response = planning_client.get(f"/api/v1/events/{event_id}/export/csv")
+    assert csv_response.status_code == 200, csv_response.text
+    assert "No planning tasks" not in csv_response.text
+
+
+def test_ai_plan_endpoints_generate_refine_and_report_status(
+    planning_client: TestClient,
+    planning_app: FastAPI,
+    event_payload: EventPayloadFactory,
+) -> None:
+    event = _create_event(planning_client, event_payload)
+    event_id = event["event_id"]
+
+    status_response = planning_client.get(f"/api/v1/events/{event_id}/ai-plan/status")
+    assert status_response.status_code == 200
+    assert status_response.json()["event_id"] == event_id
+
+    generated = planning_client.post(
+        f"/api/v1/events/{event_id}/ai-plan",
+        json={
+            "focus_areas": ["venue"],
+            "additional_notes": "Keep the morning free.",
+            "conversation": [{"role": "user", "content": "We prefer an outdoor venue."}],
+        },
+    )
+    assert generated.status_code == 201, generated.text
+
+    refined = planning_client.post(f"/api/v1/events/{event_id}/ai-plan/refine", json={})
+    assert refined.status_code == 201, refined.text
+
+    applied = planning_app.state.planning_orchestration_service.applied_recommendations(
+        UUID("00000000-0000-0000-0000-000000000001"), event_id
+    )
+    assert applied == []
+
+
+def test_export_pdf_handles_an_event_without_planning_data(
+    planning_client: TestClient,
+    event_payload: EventPayloadFactory,
+) -> None:
+    event = _create_event(planning_client, event_payload)
+
+    response = planning_client.get(f"/api/v1/events/{event['event_id']}/export/pdf")
+
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("application/pdf")
+
+
+def test_exports_include_populated_finance_task_and_vendor_sections(
+    planning_client: TestClient,
+    event_payload: EventPayloadFactory,
+) -> None:
+    event = _create_event(planning_client, event_payload)
+    event_id = event["event_id"]
+    budget = _create_budget(planning_client, event_id)
+    version = budget["version"]
+
+    for status, amount in (
+        ("estimated", "1000.00"),
+        ("quoted", "2000.00"),
+        ("confirmed", "700000.00"),
+    ):
+        expense = planning_client.post(
+            f"/api/v1/events/{event_id}/budget/expenses",
+            json={
+                "expected_version": version,
+                "category": "Catering",
+                "name": f"{status.title()} dinner",
+                "amount": amount,
+                "amount_status": status,
+            },
+        )
+        assert expense.status_code == 201, expense.text
+        version = expense.json()["version"]
+
+    completed_task = planning_client.post(
+        f"/api/v1/events/{event_id}/tasks",
+        json={
+            "title": "Confirm final headcount",
+            "priority": "high",
+            "status": "completed",
+            "due_at": "2030-06-01T10:00:00Z",
+        },
+    )
+    assert completed_task.status_code == 201, completed_task.text
+    planning_client.post(
+        f"/api/v1/events/{event_id}/tasks",
+        json={"title": "Print menus", "priority": "low"},
+    )
+
+    booked_vendor = planning_client.post(
+        f"/api/v1/events/{event_id}/vendors",
+        json={
+            "name": "Booked Banquet Hall",
+            "category": "venue",
+            "status": "booked",
+            "quoted_cost": "50000.00",
+            "availability": "Weekends",
+            "notes": "Advance paid.",
+        },
+    )
+    assert booked_vendor.status_code == 201, booked_vendor.text
+    planning_client.post(
+        f"/api/v1/events/{event_id}/vendors",
+        json={"name": "Caterer Without Price", "category": "catering"},
+    )
+
+    proposal = _generate(planning_client, event_id)
+    approved = planning_client.post(
+        f"/api/v1/events/{event_id}/proposals/{proposal['proposal_id']}/approve",
+        json={},
+    )
+    assert approved.status_code == 200, approved.text
+
+    pdf = planning_client.get(f"/api/v1/events/{event_id}/export/pdf")
+    assert pdf.status_code == 200
+
+    csv_response = planning_client.get(f"/api/v1/events/{event_id}/export/csv")
+    assert csv_response.status_code == 200
+    rows = list(csv.reader(io.StringIO(csv_response.text)))
+    assert any(row[0] == "budget" and row[1] == "budget_total" for row in rows)
+    assert any(row[0] == "expense" and "dinner" in row[2].lower() for row in rows)
+    assert any(row[0] == "task" and row[1] == "task" for row in rows)
+    assert any(row[0] == "vendor" and row[2] == "Booked Banquet Hall" for row in rows)
+    assert any(row[0] == "recommendation" for row in rows)

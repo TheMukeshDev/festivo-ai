@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from datetime import datetime, timedelta
 from decimal import Decimal, InvalidOperation
 from typing import Any
@@ -57,11 +57,22 @@ _PRIORITY_MAP = {
 }
 
 
+@dataclass(frozen=True)
+class _ApprovalOutcome:
+    """Per-item approval results plus whether anything changed."""
+
+    applied: list[AppliedItemResult]
+    skipped: list[AppliedItemResult]
+    rejected: list[AppliedItemResult]
+    changed: bool
+
+
 class ProposalService:
     """Create advisory proposals and apply only explicitly approved actions."""
 
     def __init__(
         self,
+        *,
         proposal_repository: ProposalRepository,
         event_service: EventService,
         budget_service: BudgetService,
@@ -116,7 +127,7 @@ class ProposalService:
         )
         return self._repository.create(proposal)
 
-    def list(
+    def list_proposals(
         self,
         owner_id: UUID,
         event_id: str,
@@ -153,6 +164,44 @@ class ProposalService:
         proposal = self.get(owner_id, event_id, raw_proposal_id)
         now = self._now()
 
+        self._require_approvable(proposal, now)
+        items, requested_ids = self._resolve_requested_items(proposal, request)
+
+        if proposal.status == ProposalStatus.APPROVED:
+            return self._already_approved_response(proposal, items, requested_ids)
+
+        if self._is_stale(owner_id, event, proposal):
+            raise ResourceConflictError(
+                "The event changed after this proposal was generated; regenerate it."
+            )
+
+        outcome = self._apply_requested_items(
+            owner_id,
+            event,
+            proposal,
+            items,
+            requested_ids,
+            allow_advisory=request.allow_advisory,
+            now=now,
+        )
+        if not outcome.changed:
+            return ProposalApprovalResponse(
+                proposal=ProposalResponse.from_proposal(proposal),
+                applied=outcome.applied,
+                skipped=outcome.skipped,
+                rejected=outcome.rejected,
+            )
+
+        saved = self._persist_approval(owner_id, event, proposal, items, now)
+        return ProposalApprovalResponse(
+            proposal=ProposalResponse.from_proposal(saved),
+            applied=outcome.applied,
+            skipped=outcome.skipped,
+            rejected=outcome.rejected,
+        )
+
+    def _require_approvable(self, proposal: Proposal, now: datetime) -> None:
+        """Reject terminal or expired proposals before any work is done."""
         if proposal.status in {ProposalStatus.REJECTED, ProposalStatus.EXPIRED}:
             raise ResourceConflictError("This proposal can no longer be approved.")
         if proposal.expires_at <= now and proposal.status in {
@@ -162,6 +211,12 @@ class ProposalService:
             self._expire(proposal, now)
             raise ResourceConflictError("This proposal has expired.")
 
+    def _resolve_requested_items(
+        self,
+        proposal: Proposal,
+        request: ProposalApprovalRequest,
+    ) -> tuple[list[dict[str, Any]], list[str]]:
+        """Copy payload items and resolve which of them the request targets."""
         items = [dict(item) for item in proposal.payload.get("items", [])]
         by_id = {item["item_id"]: item for item in items}
         requested_ids = (
@@ -179,30 +234,44 @@ class ProposalService:
                     )
                 ]
             )
+        return items, requested_ids
 
-        if proposal.status == ProposalStatus.APPROVED:
-            skipped = [
-                AppliedItemResult(
-                    item_id=item["item_id"],
-                    action_type=ProposalActionType(item["action_type"]),
-                    status="skipped",
-                    message="This proposal was already fully approved.",
-                )
-                for item in items
-                if item["item_id"] in requested_ids
-            ]
-            return ProposalApprovalResponse(
-                proposal=ProposalResponse.from_proposal(proposal),
-                applied=[],
-                skipped=skipped,
-                rejected=[],
+    @staticmethod
+    def _already_approved_response(
+        proposal: Proposal,
+        items: list[dict[str, Any]],
+        requested_ids: list[str],
+    ) -> ProposalApprovalResponse:
+        """Idempotent response for a proposal that was already fully approved."""
+        skipped = [
+            AppliedItemResult(
+                item_id=item["item_id"],
+                action_type=ProposalActionType(item["action_type"]),
+                status="skipped",
+                message="This proposal was already fully approved.",
             )
+            for item in items
+            if item["item_id"] in requested_ids
+        ]
+        return ProposalApprovalResponse(
+            proposal=ProposalResponse.from_proposal(proposal),
+            applied=[],
+            skipped=skipped,
+            rejected=[],
+        )
 
-        if self._is_stale(owner_id, event, proposal):
-            raise ResourceConflictError(
-                "The event changed after this proposal was generated; regenerate it."
-            )
-
+    def _apply_requested_items(
+        self,
+        owner_id: UUID,
+        event: Event,
+        proposal: Proposal,
+        items: list[dict[str, Any]],
+        requested_ids: list[str],
+        *,
+        allow_advisory: bool,
+        now: datetime,
+    ) -> _ApprovalOutcome:
+        """Apply each requested item and bucket the per-item outcomes."""
         applied: list[AppliedItemResult] = []
         skipped: list[AppliedItemResult] = []
         rejected: list[AppliedItemResult] = []
@@ -213,83 +282,111 @@ class ProposalService:
                 continue
             action_type = ProposalActionType(item["action_type"])
             item_status = ProposalItemStatus(item["status"])
-
-            if item_status == ProposalItemStatus.APPLIED:
-                skipped.append(
-                    AppliedItemResult(
-                        item_id=item["item_id"],
-                        action_type=action_type,
-                        status="skipped",
-                        message="This item was already applied.",
-                        resource_id=item.get("resource_id"),
-                    )
-                )
-                continue
-            if item_status == ProposalItemStatus.REJECTED:
-                rejected.append(
-                    AppliedItemResult(
-                        item_id=item["item_id"],
-                        action_type=action_type,
-                        status="rejected",
-                        message=item.get("result_message") or "This item was rejected.",
-                    )
-                )
-                continue
-            if item_status == ProposalItemStatus.SKIPPED:
-                skipped.append(
-                    AppliedItemResult(
-                        item_id=item["item_id"],
-                        action_type=action_type,
-                        status="skipped",
-                        message=item.get("result_message") or "This item was skipped.",
-                    )
-                )
-                continue
-
-            try:
-                outcome = self._apply_item(
+            outcome = self._terminal_item_result(action_type, item, item_status)
+            if outcome is None:
+                outcome = self._safe_apply_item(
                     owner_id,
                     event,
                     proposal,
                     item,
                     action_type,
-                    allow_advisory=request.allow_advisory,
+                    allow_advisory=allow_advisory,
                 )
-            except DomainValidationError as exc:
-                message = (
-                    exc.issues[0].message
-                    if exc.issues
-                    else "The proposed action is no longer valid."
-                )
-                outcome = self._result(item["item_id"], action_type, "skipped", message)
-            except ResourceNotFoundError:
-                outcome = self._result(
-                    item["item_id"],
-                    action_type,
-                    "skipped",
-                    "The referenced resource no longer exists.",
-                )
-            changed = True
-            item["status"] = outcome.status
-            item["result_message"] = outcome.message
-            if outcome.resource_id is not None:
-                item["resource_id"] = outcome.resource_id
+                changed = True
+                item["status"] = outcome.status
+                item["result_message"] = outcome.message
+                if outcome.resource_id is not None:
+                    item["resource_id"] = outcome.resource_id
+                if outcome.status == "applied":
+                    item["applied_at"] = now.isoformat()
+
             if outcome.status == "applied":
-                item["applied_at"] = now.isoformat()
                 applied.append(outcome)
             elif outcome.status == "rejected":
                 rejected.append(outcome)
             else:
                 skipped.append(outcome)
 
-        if not changed:
-            return ProposalApprovalResponse(
-                proposal=ProposalResponse.from_proposal(proposal),
-                applied=applied,
-                skipped=skipped,
-                rejected=rejected,
+        return _ApprovalOutcome(
+            applied=applied,
+            skipped=skipped,
+            rejected=rejected,
+            changed=changed,
+        )
+
+    @staticmethod
+    def _terminal_item_result(
+        action_type: ProposalActionType,
+        item: dict[str, Any],
+        item_status: ProposalItemStatus,
+    ) -> AppliedItemResult | None:
+        """Map already-terminal item states to their recorded result, if any."""
+        if item_status == ProposalItemStatus.APPLIED:
+            return AppliedItemResult(
+                item_id=item["item_id"],
+                action_type=action_type,
+                status="skipped",
+                message="This item was already applied.",
+                resource_id=item.get("resource_id"),
+            )
+        if item_status == ProposalItemStatus.REJECTED:
+            return AppliedItemResult(
+                item_id=item["item_id"],
+                action_type=action_type,
+                status="rejected",
+                message=item.get("result_message") or "This item was rejected.",
+            )
+        if item_status == ProposalItemStatus.SKIPPED:
+            return AppliedItemResult(
+                item_id=item["item_id"],
+                action_type=action_type,
+                status="skipped",
+                message=item.get("result_message") or "This item was skipped.",
+            )
+        return None
+
+    def _safe_apply_item(
+        self,
+        owner_id: UUID,
+        event: Event,
+        proposal: Proposal,
+        item: dict[str, Any],
+        action_type: ProposalActionType,
+        *,
+        allow_advisory: bool,
+    ) -> AppliedItemResult:
+        """Apply one item, downgrading validation/lookup failures to skips."""
+        try:
+            return self._apply_item(
+                owner_id,
+                event,
+                proposal,
+                item,
+                action_type,
+                allow_advisory=allow_advisory,
+            )
+        except DomainValidationError as exc:
+            message = (
+                exc.issues[0].message if exc.issues else "The proposed action is no longer valid."
+            )
+            return self._result(item["item_id"], action_type, "skipped", message)
+        except ResourceNotFoundError:
+            return self._result(
+                item["item_id"],
+                action_type,
+                "skipped",
+                "The referenced resource no longer exists.",
             )
 
+    def _persist_approval(
+        self,
+        owner_id: UUID,
+        event: Event,
+        proposal: Proposal,
+        items: list[dict[str, Any]],
+        now: datetime,
+    ) -> Proposal:
+        """Persist item outcomes with optimistic version checking."""
         remaining_pending = any(
             ProposalItemStatus(item["status"]) == ProposalItemStatus.PENDING for item in items
         )
@@ -315,12 +412,7 @@ class ProposalService:
             raise ResourceConflictError(
                 "The proposal was modified by another request; refresh and retry."
             )
-        return ProposalApprovalResponse(
-            proposal=ProposalResponse.from_proposal(saved),
-            applied=applied,
-            skipped=skipped,
-            rejected=rejected,
-        )
+        return saved
 
     def reject(
         self,
@@ -473,6 +565,7 @@ class ProposalService:
         *,
         allow_advisory: bool,
     ) -> AppliedItemResult:
+        """Dispatch one proposal item to its action-specific handler."""
         item_id = item["item_id"]
         data = dict(item.get("data") or {})
         template_key = f"proposal:{proposal.proposal_id}:{item_id}"
@@ -481,134 +574,24 @@ class ProposalService:
             ProposalActionType.ADD_TASK,
             ProposalActionType.ADD_VENDOR_FOLLOW_UP_TASK,
         }:
-            vendor = None
-            if action_type == ProposalActionType.ADD_VENDOR_FOLLOW_UP_TASK:
-                if self._vendor_service is None:
-                    return self._result(
-                        item_id,
-                        action_type,
-                        "skipped",
-                        "Vendor workflow is unavailable.",
-                    )
-                vendor = self._vendor_service.get(
-                    owner_id,
-                    str(event.event_id),
-                    str(data.get("vendor_id", "")),
-                )
-                if vendor.status.value in {"rejected", "cancelled"}:
-                    return self._result(
-                        item_id,
-                        action_type,
-                        "skipped",
-                        "The vendor is no longer active.",
-                    )
-            try:
-                payload = TaskCreate(
-                    title=data["title"],
-                    description=data.get("description"),
-                    priority=_PRIORITY_MAP.get(
-                        str(data.get("priority", "medium")), TaskPriority.MEDIUM
-                    ),
-                    due_at=data.get("due_at"),
-                )
-            except (KeyError, ValidationError):
-                return self._result(
-                    item_id,
-                    action_type,
-                    "skipped",
-                    "The proposed task is no longer valid.",
-                )
-            self._validate_task_due_date(event, payload.due_at)
-            task = self._task_service.create_generated_task(
+            return self._apply_task_creation(
                 owner_id,
                 event,
+                item_id,
+                action_type,
+                data,
                 template_key=template_key,
-                title=payload.title,
-                description=payload.description,
-                priority=payload.priority,
-                due_at=payload.due_at,
             )
-            message = (
-                f"Created a follow-up task for {vendor.name}."
-                if vendor is not None
-                else "Created the proposed planning task."
-            )
-            return self._result(
-                item_id,
-                action_type,
-                "applied",
-                message,
-                resource_id=str(task.task_id),
-            )
-
         if action_type == ProposalActionType.UPDATE_TASK_DUE_DATE:
-            try:
-                task_id = str(data["task_id"])
-                due_at = self._parse_datetime(data["due_at"])
-            except (KeyError, ValueError):
-                return self._result(
-                    item_id,
-                    action_type,
-                    "skipped",
-                    "The proposed due-date change is invalid.",
-                )
-            try:
-                task = self._task_service.get(owner_id, str(event.event_id), task_id)
-            except ResourceNotFoundError:
-                return self._result(
-                    item_id,
-                    action_type,
-                    "skipped",
-                    "The target task no longer exists.",
-                )
-            if task.status == TaskStatus.COMPLETED:
-                return self._result(
-                    item_id,
-                    action_type,
-                    "skipped",
-                    "Completed tasks are never modified by a proposal.",
-                )
-            expected_due_at = data.get("expected_due_at")
-            if expected_due_at is not None:
-                expected = self._parse_datetime(expected_due_at)
-                if task.due_at != expected:
-                    return self._result(
-                        item_id,
-                        action_type,
-                        "skipped",
-                        "The task due date was edited by the user; the suggestion was not applied.",
-                    )
-            self._validate_task_due_date(event, due_at)
-            updated = self._task_service.update(
-                owner_id,
-                str(event.event_id),
-                task_id,
-                TaskUpdate(due_at=due_at),
-            )
-            return self._result(
-                item_id,
-                action_type,
-                "applied",
-                "Updated the task due date.",
-                resource_id=str(updated.task_id),
-            )
-
+            return self._apply_task_due_date(owner_id, event, item_id, action_type, data)
         if action_type == ProposalActionType.BUDGET_ALLOCATION_SUGGESTION:
-            self._validate_budget_suggestion(event, data)
-            if not allow_advisory:
-                return self._result(
-                    item_id,
-                    action_type,
-                    "skipped",
-                    "Advisory budget suggestions were not approved.",
-                )
-            return self._result(
+            return self._apply_budget_advisory(
+                event,
                 item_id,
                 action_type,
-                "applied",
-                "Recorded as advice only; no budget or expense records were changed.",
+                data,
+                allow_advisory=allow_advisory,
             )
-
         if action_type == ProposalActionType.ADVISORY:
             return self._result(
                 item_id,
@@ -616,12 +599,162 @@ class ProposalService:
                 "applied",
                 "Recorded as an approved planning recommendation.",
             )
+        return self._result(item_id, action_type, "skipped", "Unsupported proposal action.")
 
+    def _apply_task_creation(
+        self,
+        owner_id: UUID,
+        event: Event,
+        item_id: str,
+        action_type: ProposalActionType,
+        data: dict[str, Any],
+        *,
+        template_key: str,
+    ) -> AppliedItemResult:
+        """Create the proposed (or vendor follow-up) planning task."""
+        vendor = None
+        if action_type == ProposalActionType.ADD_VENDOR_FOLLOW_UP_TASK:
+            if self._vendor_service is None:
+                return self._result(
+                    item_id,
+                    action_type,
+                    "skipped",
+                    "Vendor workflow is unavailable.",
+                )
+            vendor = self._vendor_service.get(
+                owner_id,
+                str(event.event_id),
+                str(data.get("vendor_id", "")),
+            )
+            if vendor.status.value in {"rejected", "cancelled"}:
+                return self._result(
+                    item_id,
+                    action_type,
+                    "skipped",
+                    "The vendor is no longer active.",
+                )
+        try:
+            payload = TaskCreate(
+                title=data["title"],
+                description=data.get("description"),
+                priority=_PRIORITY_MAP.get(
+                    str(data.get("priority", "medium")), TaskPriority.MEDIUM
+                ),
+                due_at=data.get("due_at"),
+            )
+        except (KeyError, ValidationError):
+            return self._result(
+                item_id,
+                action_type,
+                "skipped",
+                "The proposed task is no longer valid.",
+            )
+        self._validate_task_due_date(event, payload.due_at)
+        task = self._task_service.create_generated_task(
+            owner_id,
+            event,
+            template_key=template_key,
+            title=payload.title,
+            description=payload.description,
+            priority=payload.priority,
+            due_at=payload.due_at,
+        )
+        message = (
+            f"Created a follow-up task for {vendor.name}."
+            if vendor is not None
+            else "Created the proposed planning task."
+        )
         return self._result(
             item_id,
             action_type,
-            "skipped",
-            "Unsupported proposal action.",
+            "applied",
+            message,
+            resource_id=str(task.task_id),
+        )
+
+    def _apply_task_due_date(
+        self,
+        owner_id: UUID,
+        event: Event,
+        item_id: str,
+        action_type: ProposalActionType,
+        data: dict[str, Any],
+    ) -> AppliedItemResult:
+        """Apply the proposed due-date change when it is still valid."""
+        try:
+            task_id = str(data["task_id"])
+            due_at = self._parse_datetime(data["due_at"])
+        except (KeyError, ValueError):
+            return self._result(
+                item_id,
+                action_type,
+                "skipped",
+                "The proposed due-date change is invalid.",
+            )
+        try:
+            task = self._task_service.get(owner_id, str(event.event_id), task_id)
+        except ResourceNotFoundError:
+            return self._result(
+                item_id,
+                action_type,
+                "skipped",
+                "The target task no longer exists.",
+            )
+        if task.status == TaskStatus.COMPLETED:
+            return self._result(
+                item_id,
+                action_type,
+                "skipped",
+                "Completed tasks are never modified by a proposal.",
+            )
+        expected_due_at = data.get("expected_due_at")
+        if expected_due_at is not None:
+            expected = self._parse_datetime(expected_due_at)
+            if task.due_at != expected:
+                return self._result(
+                    item_id,
+                    action_type,
+                    "skipped",
+                    "The task due date was edited by the user; the suggestion was not applied.",
+                )
+        self._validate_task_due_date(event, due_at)
+        updated = self._task_service.update(
+            owner_id,
+            str(event.event_id),
+            task_id,
+            TaskUpdate(due_at=due_at),
+        )
+        return self._result(
+            item_id,
+            action_type,
+            "applied",
+            "Updated the task due date.",
+            resource_id=str(updated.task_id),
+        )
+
+    def _apply_budget_advisory(
+        self,
+        event: Event,
+        item_id: str,
+        action_type: ProposalActionType,
+        data: dict[str, Any],
+        *,
+        allow_advisory: bool,
+    ) -> AppliedItemResult:
+        """Record an advisory budget suggestion when advisory items were approved."""
+        self._validate_budget_suggestion(event, data)
+        if not allow_advisory:
+            return self._result(
+                item_id,
+                action_type,
+                "skipped",
+                "Advisory budget suggestions were not approved.",
+            )
+        return self._result(
+            item_id,
+            action_type,
+            "applied",
+            "Recorded as advice only; no budget or expense records were changed.",
         )
 
     def _items_from_plan(self, plan: AIPlanResponse, event: Event) -> list[dict[str, Any]]:
@@ -663,8 +796,8 @@ class ProposalService:
                 },
             )
 
-        for suggestion in plan.vendor_category_suggestions:
-            title = f"Research {suggestion.category} vendors"
+        for vendor_suggestion in plan.vendor_category_suggestions:
+            title = f"Research {vendor_suggestion.category} vendors"
             key = title.lower()
             if key in seen_titles:
                 continue
@@ -674,29 +807,29 @@ class ProposalService:
                 title,
                 {
                     "title": title[:200],
-                    "description": suggestion.rationale,
+                    "description": vendor_suggestion.rationale,
                     "priority": _PRIORITY_MAP.get(
-                        suggestion.priority.value, TaskPriority.MEDIUM
+                        vendor_suggestion.priority.value, TaskPriority.MEDIUM
                     ).value,
                     "due_at": None,
                 },
             )
 
-        for suggestion in plan.budget_suggestions:
-            if suggestion.currency != event.currency:
+        for budget_suggestion in plan.budget_suggestions:
+            if budget_suggestion.currency != event.currency:
                 continue
             add_item(
                 ProposalActionType.BUDGET_ALLOCATION_SUGGESTION,
-                f"Budget advice: {suggestion.category}",
+                f"Budget advice: {budget_suggestion.category}",
                 {
-                    "category": suggestion.category,
-                    "description": suggestion.description,
-                    "rationale": suggestion.rationale,
-                    "amount": str(suggestion.suggested_amount)
-                    if suggestion.suggested_amount is not None
+                    "category": budget_suggestion.category,
+                    "description": budget_suggestion.description,
+                    "rationale": budget_suggestion.rationale,
+                    "amount": str(budget_suggestion.suggested_amount)
+                    if budget_suggestion.suggested_amount is not None
                     else None,
-                    "currency": suggestion.currency,
-                    "source": suggestion.source.value,
+                    "currency": budget_suggestion.currency,
+                    "source": budget_suggestion.source.value,
                 },
             )
 
@@ -713,11 +846,11 @@ class ProposalService:
                 },
             )
 
-        for suggestion in plan.timeline_suggestions:
+        for timeline_suggestion in plan.timeline_suggestions:
             add_item(
                 ProposalActionType.ADVISORY,
                 "Timeline improvement",
-                {"details": suggestion, "category": "Timeline"},
+                {"details": timeline_suggestion, "category": "Timeline"},
             )
 
         if final_summary := plan.next_steps:
@@ -791,7 +924,7 @@ class ProposalService:
         )
         vendor_total = 0
         if self._vendor_service is not None:
-            _, vendor_total = self._vendor_service.list(
+            _, vendor_total = self._vendor_service.list_vendors(
                 owner_id,
                 str(event.event_id),
                 category=None,
@@ -818,7 +951,7 @@ class ProposalService:
             return True
         if int(snapshot.get("task_count", 0)) != current["task_count"]:
             return True
-        return int(snapshot.get("vendor_count", 0)) != current["vendor_count"]
+        return bool(int(snapshot.get("vendor_count", 0)) != current["vendor_count"])
 
     def _expire(self, proposal: Proposal, now: datetime) -> None:
         expired = replace(

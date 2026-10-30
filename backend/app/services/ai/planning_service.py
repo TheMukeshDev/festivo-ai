@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
@@ -21,6 +20,7 @@ class AIPlanningService:
 
     def __init__(
         self,
+        *,
         provider: AIProvider | None = None,
         settings: Settings | None = None,
         event_service: Any = None,
@@ -111,7 +111,7 @@ class AIPlanningService:
         }
 
         if self._vendor_service is not None:
-            vendors, vendor_total = self._vendor_service.list(
+            vendors, vendor_total = self._vendor_service.list_vendors(
                 user_id,
                 event_id,
                 category=None,
@@ -150,7 +150,7 @@ class AIPlanningService:
             raise AIProviderError("AI provider is not configured.")
 
         context = self.build_context(user_id, event_id, preferences)
-        user_prompt = build_user_prompt(json.dumps(context, default=str))
+        user_prompt = build_user_prompt(context)
         schema_kwargs = (
             {"schema": _GEMINI_RESPONSE_SCHEMA}
             if getattr(self._provider, "supports_response_schema", False)

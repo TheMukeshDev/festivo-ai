@@ -30,7 +30,7 @@ export const env = {
 
 export const isFirebaseConfigured = Boolean(
   env.firebaseConfig.apiKey &&
-    env.firebaseConfig.authDomain &&
-    env.firebaseConfig.projectId &&
-    env.firebaseConfig.appId,
+  env.firebaseConfig.authDomain &&
+  env.firebaseConfig.projectId &&
+  env.firebaseConfig.appId,
 )

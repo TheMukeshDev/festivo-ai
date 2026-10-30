@@ -11,7 +11,7 @@ def quantize_money(value: Decimal) -> Decimal:
     return value.quantize(MONEY_QUANTUM, rounding=ROUND_HALF_UP)
 
 
-def to_decimal(value) -> Decimal:
+def to_decimal(value: object) -> Decimal:
     """Convert common input types to Decimal with a sane default."""
     if value is None:
         return _ZERO_MONEY

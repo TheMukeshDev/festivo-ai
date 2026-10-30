@@ -267,7 +267,6 @@ function EventForm({ event }: { event?: EventRecord }) {
             >
               <Input
                 id="name"
-                autoFocus={!isEdit}
                 placeholder="Ananya & Rohan's wedding"
                 aria-invalid={Boolean(errors.name)}
                 aria-describedby={errors.name ? 'name-error' : undefined}
