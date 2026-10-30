@@ -992,7 +992,9 @@ class ProposalService:
     ) -> AppliedItemResult:
         return AppliedItemResult(
             item_id=item_id,
-            action_type=action_type if isinstance(action_type, ProposalActionType) else ProposalActionType.ADVISORY,
+            action_type=action_type
+            if isinstance(action_type, ProposalActionType)
+            else ProposalActionType.ADVISORY,
             status=status,
             message=message,
             resource_id=resource_id,
