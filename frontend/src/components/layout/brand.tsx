@@ -17,7 +17,7 @@ export function Brand({
       className={cn('inline-flex items-center gap-2.5 rounded-sm', className)}
       aria-label="Festivo AI home"
     >
-      <img src="/favicon.svg" alt="" className="size-9 rounded-[0.7rem] shadow-sm" />
+      <img src="/favicon.svg" alt="Festivo AI logo" className="size-9 rounded-[0.7rem] shadow-sm" />
       {!compact ? (
         <span className="font-display text-[1.35rem] tracking-[-0.02em] text-ink">
           Festivo <span className="text-primary">AI</span>
