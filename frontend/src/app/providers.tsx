@@ -80,6 +80,30 @@ function AuthBoundary({ children }: { children: ReactNode }) {
   )
 }
 
+function CanonicalManager() {
+  useEffect(() => {
+    const updateCanonical = () => {
+      const baseUrl = 'https://festivoai01.vercel.app'
+      const pathname = window.location.pathname
+      const canonicalUrl = pathname === '/' ? `${baseUrl}/` : `${baseUrl}${pathname}`
+
+      let linkEl = document.querySelector<HTMLLinkElement>('link[rel="canonical"]')
+      if (!linkEl) {
+        linkEl = document.createElement('link')
+        linkEl.setAttribute('rel', 'canonical')
+        document.head.appendChild(linkEl)
+      }
+      linkEl.setAttribute('href', canonicalUrl)
+    }
+
+    updateCanonical()
+    window.addEventListener('popstate', updateCanonical)
+    return () => window.removeEventListener('popstate', updateCanonical)
+  }, [])
+
+  return null
+}
+
 export function AppProviders({
   children,
   client,
@@ -91,6 +115,7 @@ export function AppProviders({
 
   return (
     <QueryClientProvider client={queryClient}>
+      <CanonicalManager />
       <AuthBoundary>{children}</AuthBoundary>
       <Suspense fallback={null}>
         <Toaster position="top-right" closeButton richColors />
